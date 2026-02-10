@@ -2,6 +2,7 @@
   "name": "CrownPlay Sovereign Casino",
   "description": "Premium social sweepstakes platform with Identity Vault, Royal Bounty rewards, and Oracle AI administrative oversight.",
   "requestFramePermissions": [
-    "camera"
+    "camera",
+    "geolocation"
   ]
 }

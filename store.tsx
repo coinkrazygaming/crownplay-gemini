@@ -1,7 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, UserRole, Transaction, RedemptionRequest, KYCStatus, TransactionType, CurrencyType, RedemptionStatus, Category, AuditLog, AuditAction, Game, Package, KYCDocuments, SocialComment, WinTickerEntry } from './types';
+import { User, UserRole, Transaction, RedemptionRequest, KYCStatus, TransactionType, CurrencyType, RedemptionStatus, Category, AuditLog, AuditAction, Game, Package, KYCDocuments, SocialComment, WinTickerEntry, SecurityAlert, AppSettings, EmailLog } from './types';
 import { MOCK_PACKAGES, MOCK_GAMES, INITIAL_CATEGORIES, REFERRAL_BONUS_GC, REFERRAL_BONUS_SC } from './constants';
+import { curateSocialTicker } from './aiService';
 
 interface StoreContextType {
   currentUser: User | null;
@@ -13,25 +14,29 @@ interface StoreContextType {
   packages: Package[];
   socialComments: SocialComment[];
   latestWins: WinTickerEntry[];
+  securityAlerts: SecurityAlert[];
+  auditLogs: AuditLog[];
+  emailLogs: EmailLog[];
+  settings: AppSettings;
   login: (email: string, pass: string) => Promise<boolean>;
   signup: (email: string, name: string, referralCode?: string) => Promise<void>;
   logout: () => void;
   claimDailyReward: () => string | null;
-  purchasePackage: (packageId: string) => void;
+  purchasePackage: (packageId: string, method?: string) => void;
   requestRedemption: (amount: number) => string | null;
-  updateKYC: (data: Partial<User>) => void;
-  uploadDocument: (type: keyof KYCDocuments, file: string) => void;
-  addTransaction: (tx: Transaction) => void;
-  processGameSpin: (gameId: string, bet: number, currency: CurrencyType) => Promise<{ won: boolean; amount: number; message: string }>;
-  adminAddSocialComment: (comment: SocialComment) => void;
-  adminRemoveSocialComment: (id: string) => void;
-  adminUpdateUser: (userId: string, updates: Partial<User>) => void;
+  updateUser: (updates: Partial<User>) => void;
+  processGameSpin: (gameId: string, bet: number, currency: CurrencyType) => Promise<{ won: boolean; amount: number; message: string; reels: string[][] }>;
   adminAdjustBalance: (userId: string, currency: CurrencyType, amount: number, reason: string) => void;
-  adminUpdateRedemption: (id: string, status: RedemptionStatus) => void;
   adminUpdateGame: (id: string, updates: Partial<Game>) => void;
   adminAddGame: (game: Game) => void;
   adminDeleteGame: (id: string) => void;
-  adminUpdatePackage: (id: string, updates: Partial<Package>) => void;
+  adminResolveAlert: (id: string) => void;
+  adminUpdateSettings: (updates: Partial<AppSettings>) => void;
+  adminSendEmail: (userId: string | 'ALL', subject: string, body: string, type: EmailLog['type']) => void;
+  adminUpdateUserStatus: (userId: string, status: 'ACTIVE' | 'LOCKED', kyc: KYCStatus) => void;
+  connectSocial: (platform: string) => void;
+  completeSocialPromotion: () => void;
+  uploadKycDoc: (type: keyof KYCDocuments, data: string) => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -46,107 +51,200 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [packages, setPackages] = useState<Package[]>([]);
   const [socialComments, setSocialComments] = useState<SocialComment[]>([]);
   const [latestWins, setLatestWins] = useState<WinTickerEntry[]>([]);
+  const [securityAlerts, setSecurityAlerts] = useState<SecurityAlert[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
+  const [settings, setSettings] = useState<AppSettings>({
+    globalGPayEnabled: true,
+    maintenanceMode: false,
+    minRedemption: 100,
+    newUserBonusGC: 10000,
+    newUserBonusSC: 2,
+    socialBonusGC: 5000,
+    socialBonusSC: 1,
+    dailyRewardGC: 1000,
+    dailyRewardSC: 0.5,
+    socialTaskBonusGC: 20000,
+    socialTaskBonusSC: 5,
+    leaderboardWeeklyPrizeSC: 100,
+    gamePlayBonusRate: 1,
+    squareApplicationId: '',
+    squareLocationId: '',
+    gpayMerchantId: '',
+    leaderboardVisible: true,
+    tickerMaxItems: 15,
+    tickerScrollSpeed: 40,
+    jackpotGC: 1000000,
+    jackpotSC: 5000,
+    jackpotContributionRate: 0.01,
+    jackpotSeedGC: 1000000,
+    jackpotSeedSC: 5000,
+  });
 
   useEffect(() => {
-    const savedUsers = localStorage.getItem('cp_users');
-    const savedTx = localStorage.getItem('cp_transactions');
-    const savedRed = localStorage.getItem('cp_redemptions');
-    const savedCurrent = localStorage.getItem('cp_current');
-    const savedCategories = localStorage.getItem('cp_categories');
-    const savedGames = localStorage.getItem('cp_games');
-    const savedPackages = localStorage.getItem('cp_packages');
-    const savedComments = localStorage.getItem('cp_comments');
-    const savedWins = localStorage.getItem('cp_wins');
+    const saved = (key: string) => {
+      const val = localStorage.getItem(`cp_${key}`);
+      return val ? JSON.parse(val) : null;
+    };
 
-    if (savedUsers) setUsers(JSON.parse(savedUsers));
-    else {
-      const admin: User = {
-        id: 'admin-1',
-        email: 'coinkrazy26@gmail.com',
-        role: UserRole.ADMIN,
-        status: 'ACTIVE',
-        createdAt: new Date().toISOString(),
-        goldCoins: 500000,
-        sweepCoins: 500,
-        name: 'Admin Monarch',
-        kycStatus: KYCStatus.VERIFIED,
-        kycDocuments: {},
-        referralCode: 'ADMIN-CROWN'
-      };
-      setUsers([admin]);
-    }
+    const initialUsers = saved('users') || [{
+      id: 'admin-1',
+      email: 'coinkrazy26@gmail.com',
+      role: UserRole.ADMIN,
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString(),
+      lastLoginAt: new Date().toISOString(),
+      goldCoins: 1000000,
+      sweepCoins: 1000,
+      name: 'Grand Monarch',
+      kycStatus: KYCStatus.VERIFIED,
+      kycDocuments: {},
+      referralCode: 'ADMIN-CROWN',
+      gPayEnabled: true,
+      socialConnections: [],
+      socialTaskCompleted: true,
+      xp: 1000,
+      level: 10,
+      badges: ['STAFF'],
+      totalDeposited: 0,
+      totalWithdrawn: 0,
+      isPublic: true
+    }];
 
-    if (savedTx) setTransactions(JSON.parse(savedTx));
-    if (savedRed) setRedemptions(JSON.parse(savedRed));
-    if (savedCurrent) setCurrentUser(JSON.parse(savedCurrent));
-    if (savedCategories) setCategories(JSON.parse(savedCategories));
-    else setCategories(INITIAL_CATEGORIES);
-    if (savedGames) setGames(JSON.parse(savedGames));
-    else setGames(MOCK_GAMES);
-    if (savedPackages) setPackages(JSON.parse(savedPackages));
-    else setPackages(MOCK_PACKAGES);
-
-    if (savedComments) setSocialComments(JSON.parse(savedComments));
-    else setSocialComments([
-      { id: '1', author: 'Royal Sarah', text: 'Just won 25 SC on Diamond Blitz! Love this kingdom!', source: 'FACEBOOK', createdAt: new Date().toISOString() },
-      { id: '2', author: 'Sir Winsalot', text: 'Crown Gold Rush is paying out today! Fast redemptions.', source: 'FACEBOOK', createdAt: new Date().toISOString() }
-    ]);
-
-    if (savedWins) setLatestWins(JSON.parse(savedWins));
-    else setLatestWins([
-      { id: 'w1', playerName: 'Duke James', gameName: 'Crown Gold Rush', amount: 150000, currency: CurrencyType.GC, createdAt: new Date().toISOString() },
-      { id: 'w2', playerName: 'Lady Elena', gameName: 'Royal Spins', amount: 25.5, currency: CurrencyType.SC, createdAt: new Date().toISOString() }
-    ]);
+    setUsers(initialUsers);
+    setTransactions(saved('transactions') || []);
+    setRedemptions(saved('redemptions') || []);
+    setCategories(saved('categories') || INITIAL_CATEGORIES);
+    setGames(saved('games') || MOCK_GAMES);
+    setPackages(saved('packages') || MOCK_PACKAGES);
+    setSocialComments(saved('comments') || []);
+    setLatestWins(saved('wins') || []);
+    setSecurityAlerts(saved('alerts') || []);
+    setAuditLogs(saved('audit') || []);
+    setEmailLogs(saved('emails') || []);
+    setSettings(saved('settings') || settings);
+    setCurrentUser(saved('current'));
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('cp_users', JSON.stringify(users));
-    localStorage.setItem('cp_transactions', JSON.stringify(transactions));
-    localStorage.setItem('cp_redemptions', JSON.stringify(redemptions));
-    localStorage.setItem('cp_categories', JSON.stringify(categories));
-    localStorage.setItem('cp_games', JSON.stringify(games));
-    localStorage.setItem('cp_packages', JSON.stringify(packages));
-    localStorage.setItem('cp_comments', JSON.stringify(socialComments));
-    localStorage.setItem('cp_wins', JSON.stringify(latestWins));
-    if (currentUser) localStorage.setItem('cp_current', JSON.stringify(currentUser));
+    const save = (key: string, val: any) => localStorage.setItem(`cp_${key}`, JSON.stringify(val));
+    save('users', users);
+    save('transactions', transactions);
+    save('redemptions', redemptions);
+    save('categories', categories);
+    save('games', games);
+    save('packages', packages);
+    save('comments', socialComments);
+    save('wins', latestWins);
+    save('alerts', securityAlerts);
+    save('audit', auditLogs);
+    save('emails', emailLogs);
+    save('settings', settings);
+    if (currentUser) save('current', currentUser);
     else localStorage.removeItem('cp_current');
-  }, [users, transactions, redemptions, currentUser, categories, games, packages, socialComments, latestWins]);
+  }, [users, transactions, redemptions, currentUser, categories, games, packages, socialComments, latestWins, securityAlerts, auditLogs, emailLogs, settings]);
+
+  const addAudit = (action: AuditAction, targetId: string, metadata: string) => {
+    if (!currentUser) return null;
+    const log: AuditLog = {
+      id: Math.random().toString(36).substr(2, 9),
+      adminId: currentUser.id,
+      adminName: currentUser.name,
+      targetUserId: targetId,
+      targetUserName: users.find(u => u.id === targetId)?.name || 'System/Guest',
+      action,
+      metadata,
+      createdAt: new Date().toISOString()
+    };
+    setAuditLogs(prev => [log, ...prev]);
+    return log.id;
+  };
 
   const login = async (email: string, pass: string) => {
     const user = users.find(u => u.email === email);
-    if (user && (pass === 'admin123' || pass === 'password')) {
-      setCurrentUser(user);
+    if (user && (pass === 'admin123' || pass === 'password' || pass === 'CrownPlayAdmin')) {
+      const updatedUser = { ...user, lastLoginAt: new Date().toISOString() };
+      setCurrentUser(updatedUser);
+      setUsers(users.map(u => u.id === user.id ? updatedUser : u));
       return true;
     }
     return false;
   };
 
   const signup = async (email: string, name: string, referralCode?: string) => {
-    if (users.find(u => u.email === email)) throw new Error('Citizen already exists.');
-    const userId = Math.random().toString(36).substr(2, 9);
+    const newUserId = Math.random().toString(36).substr(2, 9);
     const newUser: User = {
-      id: userId,
-      email,
-      name,
-      role: UserRole.PLAYER,
-      status: 'ACTIVE',
+      id: newUserId,
+      email, name, role: UserRole.PLAYER, status: 'ACTIVE',
       createdAt: new Date().toISOString(),
-      goldCoins: 10000,
-      sweepCoins: 10,
+      lastLoginAt: new Date().toISOString(),
+      goldCoins: settings.newUserBonusGC,
+      sweepCoins: settings.newUserBonusSC,
       kycStatus: KYCStatus.UNVERIFIED,
       kycDocuments: {},
-      referralCode: userId.toUpperCase(),
+      referralCode: 'CP-' + Math.random().toString(36).substr(2, 5).toUpperCase(),
+      gPayEnabled: false,
+      socialConnections: [],
+      socialTaskCompleted: false,
+      xp: 0, level: 1, badges: [],
+      totalDeposited: 0, totalWithdrawn: 0, isPublic: true
     };
-    setUsers(prev => [...prev, newUser]);
-    const bonuses: Transaction[] = [
-      { id: Math.random().toString(36).substr(2, 9), userId: newUser.id, type: TransactionType.BONUS, amount: 10000, currency: CurrencyType.GC, metadata: 'Welcome Gold Bonus', createdAt: new Date().toISOString() },
-      { id: Math.random().toString(36).substr(2, 9), userId: newUser.id, type: TransactionType.BONUS, amount: 10, currency: CurrencyType.SC, metadata: 'Welcome Sweep Bonus', createdAt: new Date().toISOString() }
-    ];
-    setTransactions(prev => [...bonuses, ...prev]);
+
+    let updatedUsers = [...users, newUser];
+    if (referralCode) {
+      const referrer = users.find(u => u.referralCode === referralCode);
+      if (referrer) {
+        newUser.referredBy = referrer.id;
+        newUser.goldCoins += REFERRAL_BONUS_GC;
+        newUser.sweepCoins += REFERRAL_BONUS_SC;
+        updatedUsers = updatedUsers.map(u => u.id === referrer.id ? { ...u, goldCoins: u.goldCoins + REFERRAL_BONUS_GC, sweepCoins: u.sweepCoins + REFERRAL_BONUS_SC } : u);
+      }
+    }
+    setUsers(updatedUsers);
     setCurrentUser(newUser);
   };
 
-  const logout = () => setCurrentUser(null);
+  const uploadKycDoc = (type: keyof KYCDocuments, data: string) => {
+    if (!currentUser) return;
+    const updatedDocs = { ...currentUser.kycDocuments, [type]: data, uploadedAt: new Date().toISOString() };
+    const updatedUser = { ...currentUser, kycDocuments: updatedDocs, kycStatus: KYCStatus.PENDING };
+    setCurrentUser(updatedUser);
+    setUsers(users.map(u => u.id === currentUser.id ? updatedUser : u));
+  };
+
+  const requestRedemption = (amount: number) => {
+    if (!currentUser) return "Login required";
+    if (amount < settings.minRedemption) return `Minimum redemption is ${settings.minRedemption} SC.`;
+    if (currentUser.sweepCoins < amount) return "Insufficient SC balance.";
+    
+    const docs = currentUser.kycDocuments;
+    if (!docs.idFront || !docs.proofOfAddress || !docs.paymentProof) {
+      return "Identity Vault incomplete. Please upload ID Front, Proof of Address, and Payment Proof in your profile.";
+    }
+    
+    if (currentUser.kycStatus !== KYCStatus.VERIFIED) {
+      return "Redemption paused. Your identity documents are currently under monarch review.";
+    }
+
+    const newReq: RedemptionRequest = {
+      id: Math.random().toString(36).substr(2, 9),
+      userId: currentUser.id,
+      amount,
+      status: RedemptionStatus.PENDING,
+      createdAt: new Date().toISOString()
+    };
+    
+    setRedemptions(prev => [newReq, ...prev]);
+    const updatedUser = { ...currentUser, sweepCoins: currentUser.sweepCoins - amount, totalWithdrawn: (currentUser.totalWithdrawn || 0) + amount };
+    setCurrentUser(updatedUser);
+    setUsers(users.map(u => u.id === currentUser.id ? updatedUser : u));
+    
+    setTransactions(prev => [{
+      id: Math.random().toString(36).substr(2, 9), userId: currentUser.id, type: TransactionType.REDEMPTION, amount, currency: CurrencyType.SC, status: 'PENDING', createdAt: new Date().toISOString()
+    }, ...prev]);
+
+    return null;
+  };
 
   const processGameSpin = async (gameId: string, bet: number, currency: CurrencyType) => {
     if (!currentUser) throw new Error("Not logged in");
@@ -154,128 +252,154 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!game) throw new Error("Game not found");
 
     const currencyField = currency === CurrencyType.GC ? 'goldCoins' : 'sweepCoins';
-    if (currentUser[currencyField] < bet) return { won: false, amount: 0, message: "INSUFFICIENT_FUNDS" };
+    if (currentUser[currencyField] < bet) return { won: false, amount: 0, message: "INSUFFICIENT_FUNDS", reels: [] };
 
-    // Math engine
-    const won = Math.random() < (game.rtp * 0.95); // Variance factor
-    const winAmount = won ? bet * (Math.random() > 0.8 ? (Math.random() > 0.9 ? 100 : 10) : 2) : 0;
+    // Progressive Jackpot Increment
+    const contribution = bet * settings.jackpotContributionRate;
+    setSettings(s => ({
+      ...s,
+      [currency === CurrencyType.GC ? 'jackpotGC' : 'jackpotSC']: s[currency === CurrencyType.GC ? 'jackpotGC' : 'jackpotSC'] + contribution
+    }));
 
-    const updatedUser = {
-      ...currentUser,
-      [currencyField]: currentUser[currencyField] - bet + winAmount
+    // Random Jackpot Win (1 in 500,000 chance)
+    const jackpotWon = Math.random() < 0.000002;
+    let winAmount = 0;
+    let won = false;
+
+    if (jackpotWon) {
+      winAmount = currency === CurrencyType.GC ? settings.jackpotGC : settings.jackpotSC;
+      won = true;
+      setSettings(s => ({
+        ...s,
+        [currency === CurrencyType.GC ? 'jackpotGC' : 'jackpotSC']: currency === CurrencyType.GC ? s.jackpotSeedGC : s.jackpotSeedSC
+      }));
+    } else {
+      won = Math.random() < game.rtp;
+      const multiplier = won ? (Math.random() > 0.98 ? 50 : Math.random() > 0.9 ? 10 : 2) : 0;
+      winAmount = bet * multiplier;
+    }
+
+    const updatedUser = { 
+      ...currentUser, 
+      [currencyField]: currentUser[currencyField] - bet + winAmount,
+      xp: currentUser.xp + (bet * settings.gamePlayBonusRate)
     };
+    updatedUser.level = Math.floor(Math.sqrt(updatedUser.xp / 100)) + 1;
 
     setCurrentUser(updatedUser);
     setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
 
     if (winAmount > 0) {
-      const tx: Transaction = {
+      const winEntry: WinTickerEntry = {
         id: Math.random().toString(36).substr(2, 9),
-        userId: currentUser.id,
-        type: TransactionType.GAME_WIN,
+        playerName: `${currentUser.name.split(' ')[0]} ${currentUser.name.split(' ')[1]?.[0] || ''}.`,
+        gameName: game.name,
         amount: winAmount,
         currency,
-        metadata: `Win on ${game.name}`,
         createdAt: new Date().toISOString()
       };
-      setTransactions(prev => [tx, ...prev]);
-
-      // If big win, add to ticker
-      if (winAmount > (currency === CurrencyType.GC ? 50000 : 20)) {
-        const winEntry: WinTickerEntry = {
-          id: Math.random().toString(36).substr(2, 9),
-          playerName: currentUser.name,
-          gameName: game.name,
-          amount: winAmount,
-          currency,
-          createdAt: new Date().toISOString()
-        };
-        setLatestWins(prev => [winEntry, ...prev.slice(0, 19)]);
-      }
-    } else {
-      const tx: Transaction = {
-        id: Math.random().toString(36).substr(2, 9),
-        userId: currentUser.id,
-        type: TransactionType.GAME_LOSS,
-        amount: bet,
-        currency,
-        metadata: `Loss on ${game.name}`,
-        createdAt: new Date().toISOString()
-      };
-      setTransactions(prev => [tx, ...prev]);
+      setLatestWins(prev => [winEntry, ...prev].slice(0, 50));
     }
 
-    return { won, amount: winAmount, message: won ? "ROYAL WIN!" : "BETTER LUCK NEXT TIME" };
+    return { 
+      won, 
+      amount: winAmount, 
+      message: jackpotWon ? "ROYAL PROGRESSIVE JACKPOT!" : (won ? "WIN!" : "TRY AGAIN"), 
+      reels: Array(5).fill(0).map(() => Array(3).fill(0).map(() => (game.reelsConfig || ['👑'])[Math.floor(Math.random() * (game.reelsConfig?.length || 1))])) 
+    };
   };
 
-  const claimDailyReward = () => {
-    if (!currentUser) return null;
-    const now = new Date();
-    const lastClaim = currentUser.lastDailyClaim ? new Date(currentUser.lastDailyClaim) : new Date(0);
-    const diffHours = (now.getTime() - lastClaim.getTime()) / (1000 * 60 * 60);
-    if (diffHours < 24) return `Bounty ready in ${Math.ceil(24 - diffHours)} hours.`;
-    const bonusGC = 5000;
-    const bonusSC = 0.5;
-    const updatedUser = { ...currentUser, goldCoins: currentUser.goldCoins + bonusGC, sweepCoins: currentUser.sweepCoins + bonusSC, lastDailyClaim: now.toISOString() };
-    setCurrentUser(updatedUser);
-    setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
-    setTransactions(prev => [{ id: Math.random().toString(36).substr(2, 9), userId: currentUser.id, type: TransactionType.DAILY_REWARD, amount: bonusGC, currency: CurrencyType.GC, createdAt: now.toISOString() }, ...prev]);
-    return null;
+  const adminSendEmail = (userId: string | 'ALL', subject: string, body: string, type: EmailLog['type']) => {
+    const targets = userId === 'ALL' ? users : users.filter(u => u.id === userId);
+    const newLogs: EmailLog[] = targets.map(u => ({
+      id: Math.random().toString(36).substr(2, 9),
+      userId: u.id, subject, body, type,
+      sentAt: new Date().toISOString()
+    }));
+    setEmailLogs(prev => [...newLogs, ...prev]);
+    addAudit(AuditAction.EMAIL_SENT, userId, `Sent ${type} email: ${subject}`);
   };
 
-  const purchasePackage = (packageId: string) => {
+  const purchasePackage = (packageId: string, method: string = 'Card') => {
     if (!currentUser) return;
     const pkg = packages.find(p => p.id === packageId);
     if (!pkg) return;
-    const updatedUser = { ...currentUser, goldCoins: currentUser.goldCoins + pkg.goldAmount, sweepCoins: currentUser.sweepCoins + pkg.sweepAmount };
-    setTransactions(prev => [{ id: Math.random().toString(36).substr(2, 9), userId: currentUser.id, type: TransactionType.PURCHASE, amount: pkg.priceCents / 100, currency: CurrencyType.GC, metadata: `Purchased ${pkg.name}`, createdAt: new Date().toISOString() }, ...prev]);
+    const updatedUser = { 
+      ...currentUser, 
+      goldCoins: currentUser.goldCoins + pkg.goldAmount, 
+      sweepCoins: currentUser.sweepCoins + pkg.sweepAmount,
+      totalDeposited: (currentUser.totalDeposited || 0) + (pkg.priceCents / 100)
+    };
     setCurrentUser(updatedUser);
     setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
+    setTransactions(prev => [{
+      id: Math.random().toString(36).substr(2, 9), userId: currentUser.id, type: TransactionType.PURCHASE, amount: pkg.priceCents / 100, currency: CurrencyType.GC, metadata: `Package: ${pkg.name}`, paymentMethod: method, status: 'COMPLETED', createdAt: new Date().toISOString()
+    }, ...prev]);
   };
 
-  const requestRedemption = (amount: number) => {
-    if (!currentUser || currentUser.sweepCoins < amount || amount < 100 || currentUser.kycStatus !== KYCStatus.VERIFIED) return "Verification or funds missing.";
-    const req: RedemptionRequest = { id: Math.random().toString(36).substr(2, 9), userId: currentUser.id, amount, status: RedemptionStatus.PENDING, createdAt: new Date().toISOString() };
-    const updatedUser = { ...currentUser, sweepCoins: currentUser.sweepCoins - amount };
-    setRedemptions(prev => [req, ...prev]);
-    setCurrentUser(updatedUser);
-    setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
-    return null;
+  const adminAdjustBalance = (userId: string, currency: CurrencyType, amount: number, reason: string) => {
+    const target = users.find(u => u.id === userId);
+    if (!target) return;
+    const field = currency === CurrencyType.GC ? 'goldCoins' : 'sweepCoins';
+    const updatedUser = { ...target, [field]: target[field] + amount };
+    setUsers(users.map(u => u.id === userId ? updatedUser : u));
+    if (currentUser?.id === userId) setCurrentUser(updatedUser);
+    addAudit(AuditAction.BALANCE_ADJUSTMENT, userId, `Adjusted ${currency} by ${amount}. Reason: ${reason}`);
   };
 
-  const uploadDocument = (type: keyof KYCDocuments, file: string) => {
+  const adminUpdateUserStatus = (userId: string, status: 'ACTIVE' | 'LOCKED', kyc: KYCStatus) => {
+    const target = users.find(u => u.id === userId);
+    if (!target) return;
+    const updatedUser = { ...target, status, kycStatus: kyc };
+    setUsers(users.map(u => u.id === userId ? updatedUser : u));
+    if (currentUser?.id === userId) setCurrentUser(updatedUser);
+    addAudit(AuditAction.ACCOUNT_STATUS_CHANGE, userId, `Status: ${status}, KYC: ${kyc}`);
+  };
+
+  const updateUser = (u: Partial<User>) => {
     if (!currentUser) return;
-    const updatedUser = { ...currentUser, kycDocuments: { ...currentUser.kycDocuments, [type]: file }, kycStatus: KYCStatus.PENDING };
-    setCurrentUser(updatedUser);
-    setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
+    const updated = { ...currentUser, ...u };
+    setCurrentUser(updated);
+    setUsers(users.map(u => u.id === currentUser.id ? updated : u));
   };
 
-  const updateKYC = (data: Partial<User>) => {
-    if (!currentUser) return;
-    const updatedUser = { ...currentUser, ...data };
-    setCurrentUser(updatedUser);
-    setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
-  };
-
-  const addTransaction = (tx: Transaction) => setTransactions(prev => [tx, ...prev]);
-  const adminUpdateUser = (userId: string, updates: Partial<User>) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u));
-    if (currentUser?.id === userId) setCurrentUser({ ...currentUser, ...updates });
-  };
-  const adminAdjustBalance = (u: string, c: CurrencyType, a: number, r: string) => adminUpdateUser(u, { [c === CurrencyType.GC ? 'goldCoins' : 'sweepCoins']: a });
-  const adminUpdateRedemption = (id: string, status: RedemptionStatus) => setRedemptions(prev => prev.map(r => r.id === id ? { ...r, status } : r));
+  const adminUpdateSettings = (u: Partial<AppSettings>) => setSettings(s => ({ ...s, ...u }));
   const adminUpdateGame = (id: string, u: Partial<Game>) => setGames(prev => prev.map(g => g.id === id ? { ...g, ...u } : g));
   const adminAddGame = (game: Game) => setGames(prev => [game, ...prev]);
   const adminDeleteGame = (id: string) => setGames(prev => prev.filter(g => g.id !== id));
-  const adminUpdatePackage = (id: string, u: Partial<Package>) => setPackages(prev => prev.map(p => p.id === id ? { ...p, ...u } : p));
-  const adminAddSocialComment = (c: SocialComment) => setSocialComments(prev => [c, ...prev]);
-  const adminRemoveSocialComment = (id: string) => setSocialComments(prev => prev.filter(c => c.id !== id));
+  const adminResolveAlert = (id: string) => setSecurityAlerts(prev => prev.map(a => a.id === id ? { ...a, resolved: true } : a));
+  const logout = () => setCurrentUser(null);
+  
+  const claimDailyReward = () => {
+    if (!currentUser) return "Login required";
+    const now = new Date();
+    if (currentUser.lastDailyClaim && (now.getTime() - new Date(currentUser.lastDailyClaim).getTime()) < 86400000) {
+      const wait = 86400000 - (now.getTime() - new Date(currentUser.lastDailyClaim).getTime());
+      const hours = Math.ceil(wait / 3600000);
+      return `Treasury cooldown active. Return in ${hours} hours.`;
+    }
+    const updated = { ...currentUser, goldCoins: currentUser.goldCoins + settings.dailyRewardGC, sweepCoins: currentUser.sweepCoins + settings.dailyRewardSC, lastDailyClaim: now.toISOString() };
+    setCurrentUser(updated); setUsers(users.map(u => u.id === updated.id ? updated : u));
+    return null;
+  };
 
+  const completeSocialPromotion = () => {
+    if (!currentUser || currentUser.socialTaskCompleted) return;
+    const updated = { ...currentUser, socialTaskCompleted: true, goldCoins: currentUser.goldCoins + settings.socialTaskBonusGC, sweepCoins: currentUser.sweepCoins + settings.socialTaskBonusSC };
+    setCurrentUser(updated); setUsers(users.map(u => u.id === updated.id ? updated : u));
+  };
+
+  const connectSocial = (p: string) => {
+    if (!currentUser || currentUser.socialConnections.includes(p)) return;
+    const updated = { ...currentUser, socialConnections: [...currentUser.socialConnections, p], goldCoins: currentUser.goldCoins + settings.socialBonusGC, sweepCoins: currentUser.sweepCoins + settings.socialBonusSC };
+    setCurrentUser(updated); setUsers(users.map(u => u.id === updated.id ? updated : u));
+  };
+  
   return (
     <StoreContext.Provider value={{
-      currentUser, users, transactions, redemptions, categories, games, packages, socialComments, latestWins,
-      login, signup, logout, claimDailyReward, purchasePackage, requestRedemption, updateKYC, uploadDocument, addTransaction, processGameSpin,
-      adminUpdateUser, adminAdjustBalance, adminUpdateRedemption, adminUpdateGame, adminAddGame, adminDeleteGame, adminUpdatePackage, adminAddSocialComment, adminRemoveSocialComment
+      currentUser, users, transactions, redemptions, categories, games, packages, socialComments, latestWins, securityAlerts, auditLogs, emailLogs, settings,
+      login, signup, logout, claimDailyReward, purchasePackage, requestRedemption, updateUser, processGameSpin,
+      adminAdjustBalance, adminUpdateGame, adminAddGame, adminDeleteGame, adminResolveAlert, adminUpdateSettings, adminSendEmail, adminUpdateUserStatus, connectSocial, completeSocialPromotion, uploadKycDoc
     }}>
       {children}
     </StoreContext.Provider>
@@ -284,6 +408,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
 export const useStore = () => {
   const context = useContext(StoreContext);
-  if (!context) throw new Error('useStore must be used within StoreProvider');
+  if (!context) throw new Error('useStore error');
   return context;
 };

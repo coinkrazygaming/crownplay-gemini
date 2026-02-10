@@ -7,7 +7,7 @@ import { getAIGameRecommendation } from '../aiService';
 import { TransactionType } from '../types';
 
 const LobbyPage: React.FC = () => {
-  const { categories, currentUser, transactions, games, claimDailyReward } = useStore();
+  const { categories, currentUser, transactions, games, claimDailyReward, settings } = useStore();
   const navigate = useNavigate();
   const [activeCategoryId, setActiveCategoryId] = useState<string>('cat-featured');
   const [aiPick, setAiPick] = useState<{ name: string, reason: string } | null>(null);
@@ -33,20 +33,25 @@ const LobbyPage: React.FC = () => {
     <Layout>
       <div className="space-y-12">
         {/* Banner */}
-        <div className="h-64 sm:h-96 rounded-[48px] overflow-hidden relative group">
-          <img src="https://images.unsplash.com/photo-1596838132731-dd36a1f3ec72?auto=format&fit=crop&q=80&w=1200" className="w-full h-full object-cover brightness-[0.3]" alt="Lobby Banner" />
+        <div className="h-64 sm:h-[500px] rounded-[48px] overflow-hidden relative group border-2 border-zinc-900">
+          <img src="https://images.unsplash.com/photo-1596838132731-dd36a1f3ec72?auto=format&fit=crop&q=80&w=1200" className="w-full h-full object-cover brightness-[0.2]" alt="Lobby Banner" />
           <div className="absolute inset-0 bg-gradient-to-r from-zinc-950 via-zinc-950/40 to-transparent p-12 flex flex-col justify-center">
-             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-500 text-[10px] font-black uppercase tracking-[0.2em] mb-4 border border-amber-500/20">
-               👑 Official Partner of Royal Wins
+             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-500 text-[10px] font-black uppercase tracking-[0.2em] mb-6 border border-amber-500/20">
+               💎 ROYAL PROGRESSIVE JACKPOT
              </div>
-             <h2 className="text-5xl font-black mb-2 tracking-tighter uppercase leading-none">The Royal Lobby</h2>
-             <p className="text-zinc-400 max-w-md text-lg mb-8 leading-relaxed">Play 25+ premium games designed for maximum excitement and SC redemptions.</p>
+             <div className="mb-10">
+                <div className="text-7xl font-black text-white italic tracking-tighter mb-2">
+                   {useSweepCoins ? settings.jackpotSC.toLocaleString() : settings.jackpotGC.toLocaleString()}
+                   <span className="text-3xl ml-4 font-black uppercase tracking-widest text-amber-500">{useSweepCoins ? 'SC' : 'GC'}</span>
+                </div>
+                <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs">Accumulating in real-time across the kingdom</p>
+             </div>
              <div className="flex items-center gap-4">
-               <Button variant="ai" onClick={handleAiPick} disabled={isAiLoading}>
+               <Button variant="ai" className="py-4 px-8" onClick={handleAiPick} disabled={isAiLoading}>
                  {isAiLoading ? 'CONSULTING ORACLE...' : "AI PERSONA PICK ✨"}
                </Button>
                {currentUser && (
-                 <Button variant="secondary" onClick={handleClaimDaily}>CLAIM DAILY BOUNTY</Button>
+                 <Button variant="secondary" className="py-4 px-8" onClick={handleClaimDaily}>CLAIM DAILY BOUNTY</Button>
                )}
              </div>
           </div>
@@ -64,7 +69,7 @@ const LobbyPage: React.FC = () => {
                 </div>
                 <Button variant="primary" className="px-12 py-5" onClick={() => {
                    const g = games.find(g => g.name === aiPick.name);
-                   if (g) navigate(`/game/${g.id}`);
+                   if (g) navigate(`/game/${g.id}${useSweepCoins ? '?mode=sc' : ''}`);
                 }}>PLAY NOW</Button>
                 <button onClick={() => setAiPick(null)} className="text-zinc-600 hover:text-white transition-colors p-2 text-xl">✕</button>
              </div>

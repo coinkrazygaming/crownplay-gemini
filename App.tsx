@@ -11,6 +11,9 @@ import WalletPage from './pages/WalletPage';
 import RedeemPage from './pages/RedeemPage';
 import AdminDashboard from './pages/AdminDashboard';
 import GamePage from './pages/GamePage';
+import LeaderboardPage from './pages/LeaderboardPage';
+import BonusGuidePage from './pages/BonusGuidePage';
+import PublicProfilePage from './pages/PublicProfilePage';
 
 const App: React.FC = () => {
   return (
@@ -22,10 +25,13 @@ const App: React.FC = () => {
           <Route path="/lobby" element={<LobbyPage />} />
           <Route path="/shop" element={<ShopPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/profile/:id" element={<PublicProfilePage />} />
           <Route path="/wallet" element={<WalletPage />} />
           <Route path="/redeem" element={<RedeemPage />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/game/:id" element={<GamePage />} />
+          <Route path="/leaderboard" element={<LeaderboardPage />} />
+          <Route path="/bonuses" element={<BonusGuidePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
