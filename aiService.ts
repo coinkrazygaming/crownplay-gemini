@@ -22,6 +22,51 @@ export const generateGeminiResponse = async (prompt: string, systemInstruction: 
 };
 
 /**
+ * Generates a studio-grade game specification following the high-power Builder-ready prompt format.
+ */
+export const generateStudioGameSpec = async (cloneUrl: string, vision: string) => {
+  const prompt = `
+    MASTER PROMPT EXECUTION:
+    Analyze and clone the mechanics from: ${cloneUrl}
+    Rebuild it with this CrownPlay vision: ${vision}
+    
+    REQUIRED OUTPUT (JSON ONLY):
+    {
+      "name": "CrownPlay Branded Name",
+      "description": "Premium description",
+      "mathModel": {
+        "symbolWeights": {},
+        "paytable": {},
+        "paylines": 25,
+        "hitFrequency": 0.25,
+        "volatilityRating": "HIGH",
+        "maxWinMultiplier": 5000
+      },
+      "assetManifest": {
+        "symbols": {},
+        "background": "description",
+        "animations": []
+      },
+      "featureSet": ["Expanding Wilds", "Sticky Scatters"],
+      "rtp": 0.965,
+      "volatility": "HIGH",
+      "themeColor": "#hex"
+    }
+  `;
+  
+  const result = await ai.models.generateContent({
+    model: 'gemini-3-pro-preview',
+    contents: prompt,
+    config: {
+      systemInstruction: "You are an expert game mathematician and studio lead. Output valid JSON ONLY.",
+      responseMimeType: "application/json"
+    }
+  });
+  
+  return JSON.parse(result.text);
+};
+
+/**
  * Uses Gemini to curate the most exciting wins for the social ticker.
  */
 export const curateSocialTicker = async (wins: WinTickerEntry[], maxItems: number): Promise<WinTickerEntry[] | null> => {
@@ -87,4 +132,9 @@ export const getWalletInsight = async (transactions: any[]) => {
 export const getGameSimulationInsight = async (game: any) => {
   const prompt = `Analyze these slot game parameters: Name: ${game.name}, RTP: ${game.rtp}, Volatility: ${game.volatility}. Predict retention.`;
   return await generateGeminiResponse(prompt, "You are the Monarch's Game Mathematician.");
+};
+
+export const auditIdentityVault = async (docs: any) => {
+  const prompt = `Review this identity vault status. ID uploaded: ${!!docs.idFront}, POA uploaded: ${!!docs.proofOfAddress}, Payment uploaded: ${!!docs.paymentProof}. Provide a professional verdict for the user.`;
+  return await generateGeminiResponse(prompt, "You are the Sovereign Identity Auditor.");
 };

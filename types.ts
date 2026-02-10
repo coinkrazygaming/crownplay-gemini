@@ -66,13 +66,6 @@ export interface KYCDocuments {
   uploadedAt?: string;
 }
 
-export interface UserBadge {
-  id: string;
-  name: string;
-  icon: string;
-  description: string;
-}
-
 export interface User {
   id: string;
   email: string;
@@ -101,6 +94,22 @@ export interface User {
   isPublic: boolean;
 }
 
+export interface GameMathModel {
+  symbolWeights: Record<string, number>;
+  paytable: Record<string, number[]>;
+  paylines: number;
+  hitFrequency: number;
+  volatilityRating: string;
+  maxWinMultiplier: number;
+}
+
+export interface GameAssetManifest {
+  symbols: Record<string, string>;
+  background: string;
+  soundscape: string[];
+  animations: string[];
+}
+
 export interface Game {
   id: string;
   name: string;
@@ -113,7 +122,12 @@ export interface Game {
   minBet: number;
   maxBet: number;
   themeColor: string;
-  reelsConfig?: string[]; 
+  reelsConfig?: string[];
+  // Studio-Grade Specs
+  mathModel?: GameMathModel;
+  assetManifest?: GameAssetManifest;
+  featureSet?: string[];
+  isStudioOriginal?: boolean;
 }
 
 export interface Package {
@@ -162,7 +176,6 @@ export interface AppSettings {
   globalGPayEnabled: boolean;
   maintenanceMode: boolean;
   minRedemption: number;
-  // Bonus Management
   newUserBonusGC: number;
   newUserBonusSC: number;
   socialBonusGC: number;
@@ -172,19 +185,16 @@ export interface AppSettings {
   socialTaskBonusGC: number;
   socialTaskBonusSC: number;
   leaderboardWeeklyPrizeSC: number;
-  gamePlayBonusRate: number; // XP per coin
-  // Banking
+  gamePlayBonusRate: number;
   squareApplicationId: string;
   squareLocationId: string;
   gpayMerchantId: string;
-  // Social/Ticker
   leaderboardVisible: boolean;
   tickerMaxItems: number;
   tickerScrollSpeed: number;
-  // Progressive Jackpot
   jackpotGC: number;
   jackpotSC: number;
-  jackpotContributionRate: number; // % of bet
+  jackpotContributionRate: number;
   jackpotSeedGC: number;
   jackpotSeedSC: number;
 }

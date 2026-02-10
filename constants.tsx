@@ -27,6 +27,13 @@ const createGame = (id: string, name: string, cat: string, volatility: 'LOW' | '
 
 export const MOCK_GAMES: Game[] = [
   // FEATURED
+  {
+    ...createGame('joker-neon', 'Neon Royale Joker', 'cat-featured', 'HIGH', 0.968),
+    description: "The Joker reimagined for the CrownPlay era. Neon lights, electric energy, and royal multipliers.",
+    isStudioOriginal: true,
+    reelsConfig: ['🃏', '👑', '💎', '💰', '🔥', '⚡', '🔱', '✨', '🏆'],
+    themeColor: '#a855f7'
+  },
   createGame('1', 'Crown Gold Rush', 'cat-featured', 'HIGH', 0.965),
   createGame('2', 'Royal Spins Deluxe', 'cat-featured', 'MEDIUM', 0.972),
   createGame('3', 'Imperial Fortune', 'cat-featured', 'HIGH', 0.948),
@@ -67,7 +74,6 @@ export const MOCK_PACKAGES: Package[] = [
   { id: 'p4', name: 'Royal Treasury', priceCents: 9999, goldAmount: 200000, sweepAmount: 110, isActive: true },
 ];
 
-// Updated bonusType to use CurrencyType enum values instead of unsafe strings
 export const MOCK_PROMOTIONS: Promotion[] = [
   { id: 'promo1', name: 'Daily Login Bonus', description: 'Get 5,000 GC and 0.5 SC every day!', bonusType: CurrencyType.GC, bonusValue: 5000, isActive: true },
   { id: 'promo2', name: 'New Player Special', description: 'Double your first purchase!', bonusType: CurrencyType.SC, bonusValue: 10, isActive: true },
