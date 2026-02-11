@@ -83,6 +83,7 @@ export interface User {
   referralCode: string;
   referredBy?: string;
   lastDailyClaim?: string;
+  lastKycReminderSentAt?: string;
   gPayEnabled: boolean; 
   socialConnections: string[]; 
   socialTaskCompleted: boolean;

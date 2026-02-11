@@ -11,13 +11,20 @@ const AdminDashboard: React.FC = () => {
     adminAdjustBalance, adminAddGame, adminUpdateGame, adminDeleteGame, adminResolveAlert, adminUpdateSettings, adminSendEmail, adminUpdateUserStatus, syncToNeon
   } = useStore();
   
-  const [activeTab, setActiveTab] = useState<'insight' | 'players' | 'bonuses' | 'jackpot' | 'editor' | 'security' | 'settings' | 'social' | 'maintenance'>('insight');
+  const [activeTab, setActiveTab] = useState<'insight' | 'players' | 'bonuses' | 'jackpot' | 'editor' | 'security' | 'settings' | 'social' | 'maintenance' | 'retention'>('insight');
   
   // Local state for forms
   const [emailTarget, setEmailTarget] = useState<string>('ALL');
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+  // Retention Campaign state
+  const [campaignTarget, setCampaignTarget] = useState<'INACTIVE' | 'UNVERIFIED' | 'WHALES' | 'ALL'>('INACTIVE');
+  const [campaignBonusGC, setCampaignBonusGC] = useState(1000);
+  const [campaignBonusSC, setCampaignBonusSC] = useState(1);
+  const [campaignMessage, setCampaignMessage] = useState('We miss your presence in the kingdom, Monarch. Return now to claim your royal tribute!');
+  const [isSendingCampaign, setIsSendingCampaign] = useState(false);
 
   // AI Maintenance state
   const [maintPrompt, setMaintPrompt] = useState('');
@@ -40,6 +47,40 @@ const AdminDashboard: React.FC = () => {
     adminUpdateSettings(draftSettings);
     await syncToNeon();
     alert("Sovereign Database Synchronized with Neon Cloud.");
+  };
+
+  const handleRunCampaign = async () => {
+    setIsSendingCampaign(true);
+    let targets: User[] = [];
+    const now = new Date().getTime();
+
+    if (campaignTarget === 'INACTIVE') {
+      targets = users.filter(u => (now - new Date(u.lastLoginAt).getTime()) > 3 * 24 * 60 * 60 * 1000);
+    } else if (campaignTarget === 'UNVERIFIED') {
+      targets = users.filter(u => u.kycStatus !== KYCStatus.VERIFIED);
+    } else if (campaignTarget === 'WHALES') {
+      targets = users.filter(u => u.totalDeposited > 500);
+    } else {
+      targets = users;
+    }
+
+    if (targets.length === 0) {
+      alert("No citizens found matching these criteria.");
+      setIsSendingCampaign(false);
+      return;
+    }
+
+    for (const target of targets) {
+      // Send Email
+      adminSendEmail(target.id, 'A Royal Decree from CrownPlay', campaignMessage, 'RETENTION');
+      // Apply Bonus if set
+      if (campaignBonusGC > 0) adminAdjustBalance(target.id, CurrencyType.GC, campaignBonusGC, 'Retention Campaign Bonus');
+      if (campaignBonusSC > 0) adminAdjustBalance(target.id, CurrencyType.SC, campaignBonusSC, 'Retention Campaign Bonus');
+    }
+
+    await syncToNeon();
+    alert(`Royal Decree broadcasted to ${targets.length} citizens.`);
+    setIsSendingCampaign(false);
   };
 
   const handleMaintenanceOracle = async () => {
@@ -100,22 +141,27 @@ const AdminDashboard: React.FC = () => {
     return users.filter(u => u.name.toLowerCase().includes(playerSearch.toLowerCase()) || u.email.toLowerCase().includes(playerSearch.toLowerCase()));
   }, [users, playerSearch]);
 
+  const atRiskUsers = useMemo(() => {
+    const now = new Date().getTime();
+    return users.filter(u => (now - new Date(u.lastLoginAt).getTime()) > 3 * 24 * 60 * 60 * 1000);
+  }, [users]);
+
   if (currentUser?.role !== UserRole.ADMIN) return <Layout hideSidebar><div className="py-20 text-center">ACCESS RESTRICTED</div></Layout>;
 
   return (
     <Layout>
       <div className="space-y-8 pb-24">
         {/* Status Header */}
-        <header className="flex justify-between items-center bg-zinc-900/50 p-8 rounded-[40px] border border-zinc-800">
+        <header className="flex flex-col md:flex-row justify-between items-center bg-zinc-900/50 p-6 md:p-8 rounded-[32px] md:rounded-[40px] border border-zinc-800 gap-6">
            <div className="flex items-center gap-6">
               <div className="w-16 h-16 bg-amber-500 rounded-2xl flex items-center justify-center text-zinc-950 text-3xl font-black shadow-2xl">👑</div>
               <div>
-                <h1 className="text-4xl font-black uppercase italic tracking-tighter">Monarch Console</h1>
+                <h1 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter">Monarch Console</h1>
                 <p className="text-zinc-500 font-bold uppercase tracking-[0.3em] text-[8px] mt-1">Sovereign Management Nexus Level 9</p>
               </div>
            </div>
            <div className="flex items-center gap-4">
-              <div className="flex flex-col items-end mr-4">
+              <div className="hidden sm:flex flex-col items-end mr-4">
                  <span className={`text-[10px] font-black uppercase tracking-widest ${dbStatus === 'connected' ? 'text-emerald-500' : 'text-amber-500'}`}>
                    Neon DB: {dbStatus.toUpperCase()}
                  </span>
@@ -127,13 +173,14 @@ const AdminDashboard: React.FC = () => {
            </div>
         </header>
 
-        <nav className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <nav className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide">
           {[
             { id: 'insight', label: 'Overview', icon: '📊' },
             { id: 'players', label: 'Citizens', icon: '👥' },
+            { id: 'retention', label: 'Retention', icon: '🔁' },
             { id: 'bonuses', label: 'Bonus Engine', icon: '🎁' },
             { id: 'jackpot', label: 'Jackpot Hub', icon: '🏆' },
-            { id: 'social', label: 'Social & Ticker', icon: '📢' },
+            { id: 'social', label: 'Social', icon: '📢' },
             { id: 'editor', label: 'Studio Studio', icon: '🎰' },
             { id: 'maintenance', label: 'Admin Oracle', icon: '✨' },
             { id: 'settings', label: 'Banking', icon: '⚙️' },
@@ -146,7 +193,7 @@ const AdminDashboard: React.FC = () => {
 
         <div className="animate-in fade-in duration-500">
         {activeTab === 'insight' && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
              <StatCard label="Total Citizens" val={users.length} icon="👤" />
              <StatCard label="Treasury SC" val={settings.jackpotSC.toLocaleString()} icon="💎" color="text-emerald-500" />
              <StatCard label="Vault GC" val={settings.jackpotGC.toLocaleString()} icon="💰" color="text-amber-500" />
@@ -154,13 +201,103 @@ const AdminDashboard: React.FC = () => {
           </div>
         )}
 
+        {activeTab === 'retention' && (
+          <div className="space-y-12">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 space-y-8">
+                <Card className="p-8 border-amber-500/20 bg-amber-500/5">
+                  <h3 className="text-xl font-black uppercase italic mb-8">Campaign Builder</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                    <div className="flex flex-col gap-2">
+                       <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Target Audience</label>
+                       <select className="bg-zinc-950 border border-zinc-800 p-4 rounded-2xl text-xs text-white outline-none focus:border-amber-500" value={campaignTarget} onChange={e => setCampaignTarget(e.target.value as any)}>
+                          <option value="INACTIVE">INACTIVE (3+ DAYS)</option>
+                          <option value="UNVERIFIED">UNVERIFIED (KYC)</option>
+                          <option value="WHALES">HIGH CONTRIBUTORS ($500+)</option>
+                          <option value="ALL">ALL CITIZENS</option>
+                       </select>
+                    </div>
+                    <div className="flex gap-4">
+                       <Input label="Bonus GC" type="number" value={campaignBonusGC} onChange={e => setCampaignBonusGC(Number(e.target.value))} />
+                       <Input label="Bonus SC" type="number" value={campaignBonusSC} onChange={e => setCampaignBonusSC(Number(e.target.value))} />
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2 mb-8">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Royal Message</label>
+                    <textarea 
+                      className="w-full bg-zinc-950 border-2 border-zinc-800 rounded-3xl p-6 text-xs h-32 outline-none focus:border-amber-500 transition-all text-white" 
+                      value={campaignMessage} 
+                      onChange={e => setCampaignMessage(e.target.value)}
+                    />
+                  </div>
+                  <Button variant="primary" className="w-full py-5 text-lg" onClick={handleRunCampaign} disabled={isSendingCampaign}>
+                    {isSendingCampaign ? 'BROADCASTING...' : 'BROADCAST ROYAL DECREE'}
+                  </Button>
+                </Card>
+
+                <Card className="p-8">
+                  <h3 className="text-xl font-black uppercase italic mb-8">At-Risk Citizens (Inactive 3D+)</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="text-zinc-600 font-black uppercase tracking-widest border-b border-zinc-800">
+                          <th className="p-4">Citizen</th>
+                          <th className="p-4">Finances</th>
+                          <th className="p-4">Last Visit</th>
+                          <th className="p-4 text-right">XP</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-900">
+                        {atRiskUsers.map(u => (
+                          <tr key={u.id} className="hover:bg-zinc-900/50 transition-colors">
+                            <td className="p-4">
+                               <div className="font-bold text-white uppercase italic">{u.name}</div>
+                               <div className="text-[9px] text-zinc-500 uppercase">{u.email}</div>
+                            </td>
+                            <td className="p-4">
+                               <div className="text-amber-500 font-black">${u.totalDeposited.toLocaleString()} Dep</div>
+                               <div className="text-emerald-500 font-bold">${u.totalWithdrawn.toLocaleString()} Red</div>
+                            </td>
+                            <td className="p-4 text-red-500 font-black">
+                              {Math.floor((Date.now() - new Date(u.lastLoginAt).getTime()) / 86400000)} DAYS AGO
+                            </td>
+                            <td className="p-4 text-right font-mono text-zinc-400">{u.xp.toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </div>
+
+              <div className="space-y-8">
+                <Card className="p-8 bg-zinc-900/40">
+                   <h3 className="text-lg font-black uppercase italic mb-6">Retention Health</h3>
+                   <div className="space-y-6">
+                      <RetentionStat label="Avg. Deposit" val={`$${(users.reduce((acc, u) => acc + u.totalDeposited, 0) / users.length || 0).toFixed(2)}`} />
+                      <RetentionStat label="Avg. Playtime (XP)" val={Math.floor(users.reduce((acc, u) => acc + u.xp, 0) / users.length || 0).toLocaleString()} />
+                      <RetentionStat label="KYC Verif. Rate" val={`${((users.filter(u => u.kycStatus === KYCStatus.VERIFIED).length / users.length) * 100 || 0).toFixed(1)}%`} />
+                      <RetentionStat label="Daily Active %" val={`${((users.filter(u => (Date.now() - new Date(u.lastLoginAt).getTime()) < 86400000).length / users.length) * 100 || 0).toFixed(1)}%`} />
+                   </div>
+                </Card>
+                <Card className="p-8 border-dashed border-zinc-800 flex flex-col items-center text-center">
+                   <div className="text-4xl mb-4">🔁</div>
+                   <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest leading-relaxed">
+                     Retention protocols are essential for Sovereign Treasury growth. Automated reminders check every hour for pending KYC and inactive statuses.
+                   </p>
+                </Card>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'players' && (
           <div className="space-y-8">
             <Card className="p-8">
-              <div className="flex justify-between items-center mb-8">
+              <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                 <h3 className="text-xl font-black uppercase italic">Citizen Registry</h3>
-                <div className="flex gap-4">
-                  <input className="bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-xs w-64 outline-none focus:border-amber-500" placeholder="Search citizens..." value={playerSearch} onChange={e => setPlayerSearch(e.target.value)} />
+                <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+                  <input className="bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-xs w-full sm:w-64 outline-none focus:border-amber-500" placeholder="Search citizens..." value={playerSearch} onChange={e => setPlayerSearch(e.target.value)} />
                   <Button variant="primary" onClick={handleSync}>SAVE REGISTRY</Button>
                 </div>
               </div>
@@ -359,7 +496,7 @@ const AdminDashboard: React.FC = () => {
                  <div className="space-y-6 mb-8">
                     <Input label="Target Game URL (Optional Clone)" placeholder="https://www.jackpota.com/games/slots/joker-x-love" value={cloneUrl} onChange={e => setCloneUrl(e.target.value)} />
                     <textarea 
-                      className="w-full bg-zinc-950 border-2 border-zinc-800 rounded-3xl p-6 text-xs h-32 outline-none focus:border-amber-500 transition-all" 
+                      className="w-full bg-zinc-950 border-2 border-zinc-800 rounded-3xl p-6 text-xs h-32 outline-none focus:border-amber-500 transition-all text-white" 
                       placeholder="Describe your reimaged CrownPlay vision (neon, crowns, multipliers)..." 
                       value={editorPrompt} 
                       onChange={e => setEditorPrompt(e.target.value)} 
@@ -437,6 +574,13 @@ const StatCard = ({ label, val, icon, color = "text-white" }: any) => (
     <div className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.2em] mb-2">{label}</div>
     <div className={`text-4xl font-black italic tracking-tighter ${color}`}>{val}</div>
   </Card>
+);
+
+const RetentionStat = ({ label, val }: any) => (
+  <div className="flex justify-between items-center p-4 bg-zinc-950/80 rounded-[20px] border border-zinc-800 shadow-inner">
+     <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">{label}</span>
+     <span className="text-sm font-black text-white italic">{val}</span>
+  </div>
 );
 
 export default AdminDashboard;

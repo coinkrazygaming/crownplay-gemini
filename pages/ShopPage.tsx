@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-// Added CrownLogo to imports
 import { Layout, Card, Button, Badge, GooglePayButton, CrownLogo } from '../components';
 import { useStore } from '../store';
 import { CurrencyType, Package } from '../types';
@@ -16,12 +15,27 @@ const ShopPage: React.FC = () => {
   const handleStartPurchase = (pkg: Package, method: string = paymentMethod) => {
     setSelectedPkg(pkg);
     setPaymentMethod(method);
+    
+    // For Direct Card, we still use the simulated delay for the prototype
+    if (method === 'Direct Card') {
+      setCheckoutStep('processing');
+      setTimeout(() => {
+        purchasePackage(pkg.id, method);
+        setCheckoutStep('success');
+      }, 2500);
+    }
+  };
+
+  const handleGPaySuccess = (paymentData: any) => {
+    if (!selectedPkg) return;
     setCheckoutStep('processing');
     
+    // In a real production app, we would send 'paymentData.paymentMethodData.tokenizationData.token' to our backend.
+    // For this MVP, we verify it locally and complete the purchase.
     setTimeout(() => {
-      purchasePackage(pkg.id, method);
+      purchasePackage(selectedPkg.id, 'Google Pay', paymentData);
       setCheckoutStep('success');
-    }, 2500);
+    }, 1500);
   };
 
   const handleCloseModal = () => {
@@ -84,14 +98,13 @@ const ShopPage: React.FC = () => {
           ))}
         </div>
 
-        {/* Google Pay / Payment Portal Modal */}
         {selectedPkg && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-zinc-950/95 backdrop-blur-3xl animate-in fade-in duration-500">
              <Card className="w-full max-w-xl p-12 border-amber-500/30 relative shadow-[0_50px_150px_rgba(0,0,0,0.8)]">
                 {checkoutStep === 'processing' && (
                   <div className="flex flex-col items-center justify-center py-20 text-center animate-in zoom-in-95 duration-500">
                     <div className="w-24 h-24 border-4 border-zinc-800 border-t-amber-500 rounded-full animate-spin mb-10 shadow-[0_0_50px_rgba(245,158,11,0.2)]"></div>
-                    <h3 className="text-4xl font-black mb-4 uppercase italic tracking-tighter">Gateway Handshake...</h3>
+                    <h3 className="text-4xl font-black mb-4 uppercase italic tracking-tighter">Securing Transaction...</h3>
                     <p className="text-zinc-600 font-black uppercase tracking-[0.3em] text-[10px] max-w-xs mx-auto">
                       Authorized by Royal Encryption Service v3.2
                     </p>
@@ -136,7 +149,7 @@ const ShopPage: React.FC = () => {
                     </div>
 
                     <div className="space-y-6">
-                       <GooglePayButton onClick={() => handleStartPurchase(selectedPkg, 'Google Pay')} amount={selectedPkg.priceCents/100} />
+                       <GooglePayButton onPaymentSuccess={handleGPaySuccess} amount={selectedPkg.priceCents/100} />
                        <div className="flex items-center gap-6 text-zinc-800 py-4">
                           <div className="h-px flex-1 bg-zinc-800/50" />
                           <span className="text-[10px] font-black uppercase tracking-widest">or legacy pay</span>
