@@ -326,11 +326,7 @@ export const GameCard: React.FC<{ game: any; onClick: () => void; useSweepCoins:
       }}
     >
       <div 
-        className="absolute inset-0 w-full h-full scale-[1.15] transform-gpu"
-        style={{
-          transform: `translate(${rotation.y * -1.2}px, ${rotation.x * 1.2}px)`,
-          transition: rotation.x === 0 ? 'transform 0.5s ease-out' : 'none',
-        }}
+        className="absolute inset-0 w-full h-full scale-[1.05] group-hover:scale-110 transform-gpu transition-all duration-700"
       >
         <img 
           src={game.image} 
@@ -357,14 +353,14 @@ export const GameCard: React.FC<{ game: any; onClick: () => void; useSweepCoins:
         </div>
       )}
 
-      <div className="absolute inset-x-0 bottom-0 p-5 sm:p-8 bg-gradient-to-t from-zinc-950 via-zinc-950/90 to-transparent z-10">
+      <div className="absolute inset-x-0 bottom-0 p-5 sm:p-8 bg-gradient-to-t from-zinc-950 via-zinc-950/90 to-transparent z-10 translate-y-2 group-hover:translate-y-0 transition-transform duration-500">
         <div className="flex items-center justify-between mb-2">
            <p className="text-[8px] sm:text-[11px] font-black text-amber-500 uppercase tracking-[0.3em]">{game.provider}</p>
            <div className="flex gap-1">
               {[...Array(3)].map((_, i) => <div key={i} className={`w-1 h-1 rounded-full ${i === 0 ? 'bg-amber-500' : 'bg-zinc-800'}`} />)}
            </div>
         </div>
-        <h3 className="text-xl sm:text-3xl font-black text-white italic tracking-tighter mb-3 group-hover:translate-x-2 transition-transform duration-500">{game.name}</h3>
+        <h3 className="text-xl sm:text-2xl font-black text-white italic tracking-tighter mb-3 group-hover:translate-x-2 transition-transform duration-500 truncate">{game.name}</h3>
         <div className="flex items-center gap-3">
            <div className={`w-2.5 h-2.5 rounded-full ${useSweepCoins ? 'bg-emerald-500 shadow-[0_0_12px_#10b981]' : 'bg-amber-500 shadow-[0_0_12px_#f59e0b]'}`} />
            <span className="text-[9px] sm:text-[11px] font-black text-zinc-500 uppercase tracking-widest leading-none">{useSweepCoins ? 'SC ELIGIBLE' : 'PLAY FOR GC'}</span>
@@ -376,26 +372,15 @@ export const GameCard: React.FC<{ game: any; onClick: () => void; useSweepCoins:
            <Button variant="primary" className="pointer-events-auto px-10 py-5 shadow-[0_30px_60px_rgba(0,0,0,0.8)] border-2 border-white/10 text-lg">
              PLAY NOW
            </Button>
-           <span className="text-[10px] text-white/50 font-black uppercase tracking-[0.5em] italic">Instant Load</span>
+           <span className="text-[10px] text-white/50 font-black uppercase tracking-[0.5em] italic">Secure iFrame</span>
         </div>
       </div>
 
-      <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-1000">
-        <div className="absolute top-0 -left-full w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-[-25deg] animate-shine" />
-      </div>
-
       <style>{`
-        @keyframes shine {
-          0% { left: -100%; }
-          100% { left: 200%; }
-        }
         @keyframes glint {
           0% { transform: translateX(-150%) skewX(-25deg); }
           50% { transform: translateX(150%) skewX(-25deg); }
           100% { transform: translateX(150%) skewX(-25deg); }
-        }
-        .animate-shine {
-          animation: shine 2s infinite;
         }
         .animate-glint {
           animation: glint 3s infinite ease-in-out;

@@ -108,24 +108,10 @@ export interface User {
   isPublic: boolean;
 }
 
-export interface GameMathModel {
-  symbolWeights: Record<string, number>;
-  paytable: Record<string, number[]>;
-  paylines: number;
-  hitFrequency: number;
-  volatilityRating: string;
-  maxWinMultiplier: number;
-}
-
-export interface GameAssetManifest {
-  symbols: Record<string, string>;
-  background: string;
-  soundscape: string[];
-  animations: string[];
-}
-
+// Fixed: Added missing properties used by ingestionService.ts and made provider-specific IDs optional
 export interface Game {
   id: string;
+  externalId?: string; // Pragmatic Play ID - made optional
   name: string;
   description: string;
   image: string;
@@ -136,12 +122,12 @@ export interface Game {
   minBet: number;
   maxBet: number;
   themeColor: string;
-  reelsConfig?: string[];
-  versionHash?: string;
-  mathModel?: GameMathModel;
-  assetManifest?: GameAssetManifest;
-  featureSet?: string[];
+  iframeUrl?: string; // The target source for the game - made optional
   isStudioOriginal?: boolean;
+  versionHash?: string;
+  mathModel?: any;
+  assetManifest?: any;
+  featureSet?: string[];
   lastIngestedAt?: string;
 }
 
@@ -153,16 +139,6 @@ export interface Package {
   sweepAmount: number;
   isActive: boolean;
   tag?: string;
-}
-
-// Added Promotion interface to fix export error referenced in constants.tsx
-export interface Promotion {
-  id: string;
-  name: string;
-  description: string;
-  bonusType: CurrencyType;
-  bonusValue: number;
-  isActive: boolean;
 }
 
 export interface WinTickerEntry {
@@ -204,7 +180,6 @@ export interface AppSettings {
   newUserBonusGC: number;
   newUserBonusSC: number;
   socialBonusGC: number;
-  socialBonusSC: number;
   dailyRewardGC: number;
   dailyRewardSC: number;
   socialTaskBonusGC: number;

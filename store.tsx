@@ -27,6 +27,7 @@ interface StoreContextType {
   requestRedemption: (amount: number) => string | null;
   updateUser: (updates: Partial<User>) => void;
   processGameSpin: (gameId: string, bet: number, currency: CurrencyType) => Promise<{ won: boolean; amount: number; message: string; reels: string[][]; winLines: number[] }>;
+  recordBridgeTransaction: (gameId: string, amount: number, currency: CurrencyType, type: 'BET' | 'WIN') => Promise<{ success: boolean; newBalance: number }>;
   adminAdjustBalance: (userId: string, currency: CurrencyType, amount: number, reason: string) => void;
   adminUpdateGame: (id: string, updates: Partial<Game>) => void;
   adminAddGame: (game: Game) => void;
@@ -67,7 +68,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     newUserBonusGC: 10000,
     newUserBonusSC: 2,
     socialBonusGC: 5000,
-    socialBonusSC: 1,
     dailyRewardGC: 1000,
     dailyRewardSC: 0.5,
     socialTaskBonusGC: 20000,
@@ -183,6 +183,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return false;
   };
 
+  // Atomic Spin (Used for legacy/internal games)
   const processGameSpin = async (gameId: string, bet: number, currency: CurrencyType) => {
     if (!currentUser) throw new Error("Not logged in");
     if (settings.maintenanceMode && currentUser.role !== UserRole.ADMIN) throw new Error("Kingdom under maintenance.");
@@ -193,76 +194,43 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const currencyField = currency === CurrencyType.GC ? 'goldCoins' : 'sweepCoins';
     if (currentUser[currencyField] < bet) return { won: false, amount: 0, message: "INSUFFICIENT_FUNDS", reels: [], winLines: [] };
 
-    // Contribute to Jackpot
     const contribution = bet * settings.jackpotContributionRate;
     setSettings(s => ({ 
       ...s, 
       [currency === CurrencyType.GC ? 'jackpotGC' : 'jackpotSC']: s[currency === CurrencyType.GC ? 'jackpotGC' : 'jackpotSC'] + contribution 
     }));
 
-    // Random Number Generation
     const rand = Math.random();
     let winAmount = 0;
     let won = false;
-    let winLines: number[] = [];
     let message = "TRY AGAIN";
 
-    // 1. Check for Jackpot (Ultra Rare)
-    const jackpotChance = 0.000005;
-    if (rand < jackpotChance) {
+    if (rand < 0.000005) { // Jackpot
       winAmount = currency === CurrencyType.GC ? settings.jackpotGC : settings.jackpotSC;
       won = true;
       message = "ROYAL JACKPOT!";
       setSettings(s => ({ ...s, [currency === CurrencyType.GC ? 'jackpotGC' : 'jackpotSC']: currency === CurrencyType.GC ? s.jackpotSeedGC : s.jackpotSeedSC }));
-      adminSendEmail(currentUser.id, 'URGENT: Jackpot Disbursement', `Your Majesty! You have claimed the Royal Jackpot of ${winAmount.toLocaleString()} ${currency}!`, 'SYSTEM');
-    } 
-    // 2. Standard Logic
-    else {
-      // Basic slot math simulation
-      const hitRand = Math.random();
-      const hitFrequency = game.mathModel?.hitFrequency || 0.25;
-      
-      if (hitRand < hitFrequency) {
+    } else {
+      const hitFrequency = 0.25;
+      if (Math.random() < hitFrequency) {
         won = true;
-        // Volatility multiplier
-        const volFactor = game.volatility === 'HIGH' ? 1.5 : (game.volatility === 'MEDIUM' ? 1.0 : 0.6);
-        const winMultRand = Math.random();
-        
-        let multiplier = 2;
-        if (winMultRand > 0.98) multiplier = 100 * volFactor;
-        else if (winMultRand > 0.95) multiplier = 50 * volFactor;
-        else if (winMultRand > 0.85) multiplier = 10 * volFactor;
-        else if (winMultRand > 0.60) multiplier = 5 * volFactor;
-        
-        winAmount = Math.floor(bet * multiplier);
-        winLines = [1]; // Simplified for now, in a real engine we'd calculate line paths
-        message = multiplier > 20 ? "MEGA WIN!" : "WIN!";
+        const volFactor = game.volatility === 'HIGH' ? 2 : (game.volatility === 'MEDIUM' ? 1.0 : 0.5);
+        const mult = Math.random() > 0.9 ? 10 * volFactor : 2 * volFactor;
+        winAmount = Math.floor(bet * mult);
+        message = winAmount > bet * 10 ? "MEGA WIN!" : "WIN!";
       }
     }
 
-    // Update User
     const updatedUser = { 
       ...currentUser, 
       [currencyField]: currentUser[currencyField] - bet + winAmount, 
       xp: currentUser.xp + (bet * settings.gamePlayBonusRate) 
     };
     updatedUser.level = Math.floor(Math.sqrt(updatedUser.xp / 100)) + 1;
-    
-    // Check for level up badge
-    if (updatedUser.level >= 10 && !updatedUser.badges.includes('WHALE')) {
-      updatedUser.badges.push('WHALE');
-    }
 
     setCurrentUser(updatedUser);
     setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
 
-    // Generate Visual Reels based on result
-    const strips = game.reelsConfig || ['👑', '💎', '💰', '✨', '🔥', '⚡', '🔱'];
-    const generatedReels = Array(5).fill(0).map(() => 
-      Array(3).fill(0).map(() => strips[Math.floor(Math.random() * strips.length)])
-    );
-
-    // Record Win
     if (winAmount > 0) {
       const winEntry: WinTickerEntry = { 
         id: Math.random().toString(36).substr(2, 9), 
@@ -275,7 +243,86 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setLatestWins(prev => [winEntry, ...prev].slice(0, 50));
     }
 
-    return { won, amount: winAmount, message, reels: generatedReels, winLines };
+    return { won, amount: winAmount, message, reels: [], winLines: [] };
+  };
+
+  // Seamless Bridge Transaction (Used for external iFrame providers like Pragmatic)
+  // FIXED: Using functional updates to prevent race conditions during rapid betting/winning
+  const recordBridgeTransaction = async (gameId: string, amount: number, currency: CurrencyType, type: 'BET' | 'WIN') => {
+    if (!currentUser) throw new Error("Not logged in");
+    
+    const currencyField = currency === CurrencyType.GC ? 'goldCoins' : 'sweepCoins';
+    let finalNewBalance = 0;
+
+    // Use a promise to handle the update and return the new balance correctly
+    return new Promise<{ success: boolean; newBalance: number }>((resolve, reject) => {
+      setCurrentUser(prev => {
+        if (!prev) {
+          reject("No user session");
+          return null;
+        }
+
+        let newBalance = prev[currencyField];
+
+        if (type === 'BET') {
+          if (prev[currencyField] < amount) {
+            reject(new Error("INSUFFICIENT_FUNDS"));
+            return prev;
+          }
+          newBalance -= amount;
+          
+          // Jackpot contribution on bet
+          const contribution = amount * settings.jackpotContributionRate;
+          setSettings(s => ({ 
+            ...s, 
+            [currency === CurrencyType.GC ? 'jackpotGC' : 'jackpotSC']: s[currency === CurrencyType.GC ? 'jackpotGC' : 'jackpotSC'] + contribution 
+          }));
+        } else {
+          newBalance += amount;
+          
+          // Update Win Ticker on Bridge Win
+          if (amount > 0) {
+            const game = games.find(g => g.id === gameId);
+            const winEntry: WinTickerEntry = { 
+              id: Math.random().toString(36).substr(2, 9), 
+              playerName: `${prev.name.split(' ')[0]} ${prev.name.split(' ')[1]?.[0] || ''}.`, 
+              gameName: game?.name || "Live Game", 
+              amount, 
+              currency, 
+              createdAt: new Date().toISOString() 
+            };
+            setLatestWins(lprev => [winEntry, ...lprev].slice(0, 50));
+          }
+        }
+
+        finalNewBalance = newBalance;
+        const updatedUser = { 
+          ...prev, 
+          [currencyField]: newBalance,
+          xp: prev.xp + (type === 'BET' ? amount * settings.gamePlayBonusRate : 0)
+        };
+        updatedUser.level = Math.floor(Math.sqrt(updatedUser.xp / 100)) + 1;
+
+        // Also sync to global users list
+        setUsers(uprev => uprev.map(u => u.id === updatedUser.id ? updatedUser : u));
+        
+        // Log as a transaction
+        const tx: Transaction = {
+          id: Math.random().toString(36).substr(2, 9),
+          userId: prev.id,
+          type: type === 'BET' ? TransactionType.GAME_LOSS : TransactionType.GAME_WIN,
+          amount: amount,
+          currency: currency,
+          metadata: `Bridge ${type}: ${gameId}`,
+          status: 'COMPLETED',
+          createdAt: new Date().toISOString()
+        };
+        setTransactions(tprev => [tx, ...tprev]);
+
+        resolve({ success: true, newBalance: finalNewBalance });
+        return updatedUser;
+      });
+    });
   };
 
   const purchasePackage = (packageId: string, method: string = 'Card', paymentData: any = null) => {
@@ -377,7 +424,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       createdAt: new Date().toISOString(),
       lastLoginAt: new Date().toISOString(),
       goldCoins: settings.newUserBonusGC,
-      sweepCoins: settings.newUserBonusSC,
+      sweepCoins: 2, // Welcome SC
       kycStatus: KYCStatus.UNVERIFIED,
       kycDocuments: {},
       referralCode: 'CP-' + Math.random().toString(36).substr(2, 5).toUpperCase(),
@@ -464,14 +511,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const connectSocial = (platform: string) => {
     if (!currentUser) return;
-    const updated = { ...currentUser, socialConnections: [...currentUser.socialConnections, platform], goldCoins: currentUser.goldCoins + settings.socialBonusGC };
+    const updated = { ...currentUser, socialConnections: [...currentUser.socialConnections, platform], goldCoins: currentUser.goldCoins + 5000 };
     setCurrentUser(updated); setUsers(users.map(u => u.id === updated.id ? updated : u));
     syncToNeon();
   };
 
   const completeSocialPromotion = () => {
     if (!currentUser) return;
-    const updated = { ...currentUser, socialTaskCompleted: true, goldCoins: currentUser.goldCoins + settings.socialTaskBonusGC };
+    const updated = { ...currentUser, socialTaskCompleted: true, goldCoins: currentUser.goldCoins + 20000 };
     setCurrentUser(updated); setUsers(users.map(u => u.id === updated.id ? updated : u));
     syncToNeon();
   };
@@ -479,7 +526,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <StoreContext.Provider value={{
       currentUser, users, transactions, redemptions, categories, games, packages, socialComments, latestWins, securityAlerts, auditLogs, emailLogs, ingestionLogs, settings, dbStatus,
-      login, signup, logout, claimDailyReward, purchasePackage, requestRedemption, updateUser, processGameSpin,
+      login, signup, logout, claimDailyReward, purchasePackage, requestRedemption, updateUser, processGameSpin, recordBridgeTransaction,
       adminAdjustBalance, adminUpdateGame, adminAddGame, adminUpsertGames, adminDeleteGame, adminResolveAlert, adminUpdateSettings, adminSendEmail, adminUpdateUserStatus, adminAddIngestionLog, connectSocial, completeSocialPromotion, uploadKycDoc, syncToNeon
     }}>
       {children}

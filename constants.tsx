@@ -1,82 +1,151 @@
 
-import { Game, Package, Promotion, Category, CurrencyType } from './types';
+import { Game, Package, Category, CurrencyType } from './types';
 
 export const APP_NAME = "CrownPlay";
 
 export const INITIAL_CATEGORIES: Category[] = [
   { id: 'cat-featured', name: 'Featured', icon: '🔥' },
-  { id: 'cat-slots', name: 'Slots', icon: '🎰' },
-  { id: 'cat-jackpots', name: 'Jackpots', icon: '💰' },
-  { id: 'cat-table', name: 'Tables', icon: '🃏' },
-  { id: 'cat-live', name: 'Live Dealers', icon: '🎥' }
+  { id: 'cat-slots', name: 'Pragmatic Slots', icon: '🎰' },
+  { id: 'cat-jackpots', name: 'Elite Jackpots', icon: '💰' },
+  { id: 'cat-table', name: 'High Stakes Tables', icon: '🃏' }
 ];
 
-const createGame = (id: string, name: string, cat: string, volatility: 'LOW' | 'MEDIUM' | 'HIGH', rtp: number): Game => ({
-  id,
-  name,
-  description: `Experience the premium thrill of ${name} exclusively at CrownPlay.`,
-  image: `https://picsum.photos/seed/${id}/400/500`,
-  categoryId: cat,
-  provider: 'CrownPlay Studios',
-  rtp,
-  volatility,
-  minBet: 100,
-  maxBet: 1000000,
-  themeColor: '#f59e0b'
-});
-
-export const MOCK_GAMES: Game[] = [
-  // FEATURED
-  {
-    ...createGame('joker-neon', 'Neon Royale Joker', 'cat-featured', 'HIGH', 0.968),
-    description: "The Joker reimagined for the CrownPlay era. Neon lights, electric energy, and royal multipliers.",
-    isStudioOriginal: true,
-    reelsConfig: ['🃏', '👑', '💎', '💰', '🔥', '⚡', '🔱', '✨', '🏆'],
-    themeColor: '#a855f7'
-  },
-  createGame('1', 'Crown Gold Rush', 'cat-featured', 'HIGH', 0.965),
-  createGame('2', 'Royal Spins Deluxe', 'cat-featured', 'MEDIUM', 0.972),
-  createGame('3', 'Imperial Fortune', 'cat-featured', 'HIGH', 0.948),
-  createGame('4', 'Queen of Crowns', 'cat-featured', 'LOW', 0.98),
-  createGame('5', 'Majestic Multiplier', 'cat-featured', 'MEDIUM', 0.96),
-
-  // SLOTS
-  createGame('6', 'Sovereign Reels', 'cat-slots', 'MEDIUM', 0.96),
-  createGame('7', 'Treasury Quest', 'cat-slots', 'HIGH', 0.955),
-  createGame('8', 'Golden Scepter', 'cat-slots', 'MEDIUM', 0.962),
-  createGame('9', 'Palace Perks', 'cat-slots', 'LOW', 0.975),
-  createGame('10', 'Noble Nights', 'cat-slots', 'HIGH', 0.95),
-  createGame('11', 'Crown Jewelers', 'cat-slots', 'MEDIUM', 0.968),
-  createGame('12', 'Regal Wilds', 'cat-slots', 'MEDIUM', 0.96),
-  createGame('13', 'Emerald Throne', 'cat-slots', 'HIGH', 0.945),
-  createGame('14', 'Dynasty Diamonds', 'cat-slots', 'LOW', 0.972),
-  createGame('15', 'Knightly Wins', 'cat-slots', 'MEDIUM', 0.964),
-
-  // JACKPOTS
-  createGame('16', 'Mega Crown Jackpot', 'cat-jackpots', 'HIGH', 0.92),
-  createGame('17', 'King of Coins', 'cat-jackpots', 'HIGH', 0.935),
-  createGame('18', 'Diamond Crown Blitz', 'cat-jackpots', 'MEDIUM', 0.95),
-  createGame('19', 'Royal Vault', 'cat-jackpots', 'HIGH', 0.94),
-  createGame('20', 'Infinite Sovereignty', 'cat-jackpots', 'HIGH', 0.915),
-
-  // TABLES
-  createGame('21', 'Crown Blackjack', 'cat-table', 'LOW', 0.995),
-  createGame('22', 'Royal Roulette', 'cat-table', 'LOW', 0.973),
-  createGame('23', 'Palace Baccarat', 'cat-table', 'LOW', 0.989),
-  createGame('24', 'Crown Casino Holdem', 'cat-table', 'MEDIUM', 0.98),
-  createGame('25', 'Regal Craps', 'cat-table', 'MEDIUM', 0.985),
+const PRAGMATIC_MAPPING = [
+  { name: "Gates of Olympus", symbol: "vs20olympgate" },
+  { name: "Sugar Rush 1000", symbol: "vs20sugarrush" },
+  { name: "Sweet Bonanza", symbol: "vs20sweetbonanza" },
+  { name: "Big Bass Bonanza", symbol: "vs10bbbonanza" },
+  { name: "Wolf Gold", symbol: "vs25wolfgold" },
+  { name: "The Dog House", symbol: "vs20doghouse" },
+  { name: "Wild West Gold", symbol: "vs40wildwest" },
+  { name: "Madame Destiny Megaways", symbol: "vswaysmadame" },
+  { name: "Juicy Fruits", symbol: "vs50juicyfr" },
+  { name: "Starlight Princess", symbol: "vs20starlight" },
+  { name: "Buffalo King", symbol: "vs4096bufking" },
+  { name: "Fruit Party 2", symbol: "vs20fruitparty" },
+  { name: "Great Rhino Megaways", symbol: "vswaysrhino" },
+  { name: "Chilli Heat", symbol: "vs25chilli" },
+  { name: "Mustang Gold", symbol: "vs25mustang" },
+  { name: "Release the Kraken", symbol: "vs20kraken" },
+  { name: "Tomb of the Scarab Queen", symbol: "vs25scarabqueen" },
+  { name: "The Hand of Midas", symbol: "vs20midas" },
+  { name: "Spartan King", symbol: "vs40spartan" },
+  { name: "Floating Dragon", symbol: "vs10floatdrg" },
+  { name: "Ancient Egypt", symbol: "vs10egypt" },
+  { name: "Panda's Fortune", symbol: "vs25pandafort" },
+  { name: "Golden Beauty", symbol: "vs75beauty" },
+  { name: "Greek Gods", symbol: "vs243greekgods" },
+  { name: "Master Joker", symbol: "vs1masterjoker" },
+  { name: "Aladdin and the Sorcerer", symbol: "vs20aladdin" },
+  { name: "Mysterious Egypt", symbol: "vs10wildnewyear" },
+  { name: "Eye of the Storm", symbol: "vs10eyestorm" },
+  { name: "Chicken Drop", symbol: "vs20chickdrop" },
+  { name: "Bigger Bass Bonanza", symbol: "vs12bbbonanza" },
+  { name: "Treasure Wild", symbol: "vs20treasurew" },
+  { name: "Day of Dead", symbol: "vs20daydead" },
+  { name: "Mystic Chief", symbol: "vs576mystic" },
+  { name: "Bounty Gold", symbol: "vs25bountyg" },
+  { name: "Santa's Wonderland", symbol: "vs20santawonder" },
+  { name: "Wild Depths", symbol: "vs40wilddepth" },
+  { name: "Magician's Secrets", symbol: "vs4096magician" },
+  { name: "Rock Vegas", symbol: "vs20rockvegas" },
+  { name: "The Ultimate 5", symbol: "vs20ultim5" },
+  { name: "Colossal Cash Zone", symbol: "vs20colossal" },
+  { name: "Barn Festival", symbol: "vs20barnfest" },
+  { name: "Spaceman", symbol: "vs0spaceman" },
+  { name: "Drill that Gold", symbol: "vs20drillgold" },
+  { name: "Eye of Cleopatra", symbol: "vs40cleopatra" },
+  { name: "Clover Gold", symbol: "vs20clovergold" },
+  { name: "Fire Strike 2", symbol: "vs10firestrike2" },
+  { name: "Zombie Carnival", symbol: "vs4096zombie" },
+  { name: "Fortune of Giza", symbol: "vs20giza" },
+  { name: "Big Bass Splash", symbol: "vs10splashtxt" },
+  { name: "Cash Patrol", symbol: "vs25cpatrol" },
+  { name: "Queen of Gods", symbol: "vs10queengods" },
+  { name: "Cosmic Cash", symbol: "vs40cosmiccash" },
+  { name: "Tropical Tiki", symbol: "vs3125ttiki" },
+  { name: "Gorilla Mayhem", symbol: "vs1024gorilla" },
+  { name: "Greedy Wolf", symbol: "vs20greedywolf" },
+  { name: "Black Bull", symbol: "vs20blackbull" },
+  { name: "Crown of Fire", symbol: "vs10crownfire" },
+  { name: "Book of Golden Sands", symbol: "vswaysbookgs" },
+  { name: "Striking Hot 5", symbol: "vs5striking" },
+  { name: "Happy Hooves", symbol: "vs40hooves" },
+  { name: "Fire Archer", symbol: "vs25firearcher" },
+  { name: "Gods of Giza", symbol: "vs10godsgiza" },
+  { name: "Rabbit Garden", symbol: "vs20rabbitgard" },
+  { name: "Wild Bison Charge", symbol: "vs50bison" },
+  { name: "Knight Hot Spotz", symbol: "vs25knighthp" },
+  { name: "Loki's Riches", symbol: "vs20lokiriches" },
+  { name: "Pinup Girls", symbol: "vs20pinup" },
+  { name: "Gems Bonanza", symbol: "vs20gemsbon" },
+  { name: "Voodoo Magic", symbol: "vs40voodoo" },
+  { name: "Power of Thor Megaways", symbol: "vswaysthor" },
+  { name: "Wild Booster", symbol: "vs20booster" },
+  { name: "Fishin' Reels", symbol: "vs10fishinreels" },
+  { name: "The Hand of Midas", symbol: "vs20midas" },
+  { name: "Buffalo King Megaways", symbol: "vswaysbufking" },
+  { name: "Fruit Party", symbol: "vs20fruitparty" },
+  { name: "Book of Tut", symbol: "vs10bookoftut" },
+  { name: "Great Rhino", symbol: "vs20rhino" },
+  { name: "Da Vinci's Treasure", symbol: "vs25davinci" },
+  { name: "Triple Dragons", symbol: "vs5dragons" },
+  { name: "888 Dragons", symbol: "vs1dragons" },
+  { name: "Aztec Gems", symbol: "vs5aztecgems" },
+  { name: "Vampires vs Wolves", symbol: "vs10vampires" },
+  { name: "Super Joker", symbol: "vs5sjoker" },
+  { name: "Honey Honey Honey", symbol: "vs20honey" },
+  { name: "Tree of Riches", symbol: "vs1treeofrich" },
+  { name: "Hercules and Pegasus", symbol: "vs20hercpun" },
+  { name: "Monkey Warrior", symbol: "vs25monkey" },
+  { name: "Fire 88", symbol: "vs3fire88" },
+  { name: "Diamond Strike", symbol: "vs15diamond" },
+  { name: "Gold Rush", symbol: "vs25goldrush" },
+  { name: "Pixie Wings", symbol: "vs50pixie" },
+  { name: "Queen of Gold", symbol: "vs25queenofgold" },
+  { name: "Joker's Jewels", symbol: "vs5jokerjewels" },
+  { name: "Triple Tigers", symbol: "vs1ttiger" },
+  { name: "Wild Spells", symbol: "vs25wildspells" },
+  { name: "Dragon Kingdom", symbol: "vs25dragonkingdom" },
+  { name: "Hot Safari", symbol: "vs25hotsafari" },
+  { name: "Panda's Fortune 2", symbol: "vs25pandafort2" },
+  { name: "The Magic Cauldron", symbol: "vs20magiccauldron" },
+  { name: "Cash Bonanza", symbol: "vs4096cashbon" }
 ];
+
+const generatePragmaticLibrary = (): Game[] => {
+  return PRAGMATIC_MAPPING.map((game, index) => {
+    const id = `pp-${index}`;
+    const externalId = game.symbol;
+    const categoryId = index < 12 ? 'cat-featured' : 'cat-slots';
+    
+    return {
+      id,
+      externalId,
+      name: game.name,
+      description: `Premium Pragmatic Play title: ${game.name}. Experience authentic studio mathematics and state-of-the-art visuals.`,
+      // Real CDN Thumbnails
+      image: `https://static.pragmaticplay.net/game_pic/square/200/${externalId}.png`,
+      categoryId,
+      provider: 'Pragmatic Play',
+      rtp: 0.965,
+      volatility: index % 3 === 0 ? 'HIGH' : index % 3 === 1 ? 'MEDIUM' : 'LOW',
+      minBet: 100,
+      maxBet: 500000,
+      themeColor: index % 2 === 0 ? '#f59e0b' : '#10b981',
+      // Authentic Demo URL
+      iframeUrl: `https://demogamesfree.pragmaticplay.net/gs2c/openGame.do?gameSymbol=${externalId}&lang=en&cur=USD&jurisdiction=99`
+    };
+  });
+};
+
+export const MOCK_GAMES: Game[] = generatePragmaticLibrary();
 
 export const MOCK_PACKAGES: Package[] = [
   { id: 'p1', name: 'Starter Bundle', priceCents: 999, goldAmount: 10000, sweepAmount: 10, isActive: true, tag: 'Most Popular' },
   { id: 'p2', name: 'Pro Package', priceCents: 1999, goldAmount: 25000, sweepAmount: 22, isActive: true },
   { id: 'p3', name: 'Crown Elite', priceCents: 4999, goldAmount: 75000, sweepAmount: 55, isActive: true, tag: 'Best Value' },
   { id: 'p4', name: 'Royal Treasury', priceCents: 9999, goldAmount: 200000, sweepAmount: 110, isActive: true },
-];
-
-export const MOCK_PROMOTIONS: Promotion[] = [
-  { id: 'promo1', name: 'Daily Login Bonus', description: 'Get 5,000 GC and 0.5 SC every day!', bonusType: CurrencyType.GC, bonusValue: 5000, isActive: true },
-  { id: 'promo2', name: 'New Player Special', description: 'Double your first purchase!', bonusType: CurrencyType.SC, bonusValue: 10, isActive: true },
 ];
 
 export const REFERRAL_BONUS_GC = 5000;
