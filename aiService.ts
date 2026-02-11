@@ -1,8 +1,8 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { WinTickerEntry } from "./types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+const ai = new GoogleGenAI({ apiKey: apiKey });
 
 export const generateGeminiResponse = async (prompt: string, systemInstruction: string = "You are the Royal Concierge for CrownPlay, a premium social casino. Be elegant, helpful, and sophisticated.") => {
   try {
