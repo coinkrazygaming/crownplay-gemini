@@ -46,7 +46,19 @@ export enum AuditAction {
   SECURITY_OVERRIDE = 'SECURITY_OVERRIDE',
   LEADERBOARD_ADJUSTMENT = 'LEADERBOARD_ADJUSTMENT',
   EMAIL_SENT = 'EMAIL_SENT',
-  MAINTENANCE_COMMAND = 'MAINTENANCE_COMMAND'
+  MAINTENANCE_COMMAND = 'MAINTENANCE_COMMAND',
+  INGESTION_SYNC = 'INGESTION_SYNC'
+}
+
+export interface IngestionLog {
+  id: string;
+  timestamp: string;
+  provider: 'BGAMING' | 'PRAGMATIC';
+  gamesProcessed: number;
+  newGames: string[];
+  updatedGames: string[];
+  errors: string[];
+  status: 'SUCCESS' | 'PARTIAL' | 'FAILED';
 }
 
 export interface SecurityAlert {
@@ -83,6 +95,7 @@ export interface User {
   referralCode: string;
   referredBy?: string;
   lastDailyClaim?: string;
+  loginStreak: number;
   lastKycReminderSentAt?: string;
   gPayEnabled: boolean; 
   socialConnections: string[]; 
@@ -124,11 +137,12 @@ export interface Game {
   maxBet: number;
   themeColor: string;
   reelsConfig?: string[];
-  // Studio-Grade Specs
+  versionHash?: string;
   mathModel?: GameMathModel;
   assetManifest?: GameAssetManifest;
   featureSet?: string[];
   isStudioOriginal?: boolean;
+  lastIngestedAt?: string;
 }
 
 export interface Package {
@@ -139,6 +153,16 @@ export interface Package {
   sweepAmount: number;
   isActive: boolean;
   tag?: string;
+}
+
+// Added Promotion interface to fix export error referenced in constants.tsx
+export interface Promotion {
+  id: string;
+  name: string;
+  description: string;
+  bonusType: CurrencyType;
+  bonusValue: number;
+  isActive: boolean;
 }
 
 export interface WinTickerEntry {
@@ -204,15 +228,6 @@ export interface Category {
   id: string;
   name: string;
   icon: string;
-}
-
-export interface Promotion {
-  id: string;
-  name: string;
-  description: string;
-  bonusType: CurrencyType;
-  bonusValue: number;
-  isActive: boolean;
 }
 
 export interface RedemptionRequest {

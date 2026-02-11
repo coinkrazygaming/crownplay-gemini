@@ -11,9 +11,26 @@ export const CrownLogo = () => (
   </svg>
 );
 
+const GoldCoinIcon = () => (
+  <svg viewBox="0 0 24 24" className="w-full h-full fill-amber-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+    <circle cx="12" cy="12" r="10" className="fill-amber-600" />
+    <circle cx="12" cy="12" r="8" className="fill-amber-400" stroke="#b45309" strokeWidth="1" />
+    <path d="M12 7v10M9 9h6M9 15h6" stroke="#b45309" strokeWidth="1.5" strokeLinecap="round" />
+    <circle cx="12" cy="12" r="5" fill="none" stroke="#b45309" strokeWidth="0.5" opacity="0.3" />
+  </svg>
+);
+
+const SweepGemIcon = () => (
+  <svg viewBox="0 0 24 24" className="w-full h-full fill-emerald-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+    <path d="M12 2l9 5v10l-9 5-9-5V7l9-5z" className="fill-emerald-600" />
+    <path d="M12 5l6 3.5v7l-6 3.5-6-3.5v-7l6-3.5z" className="fill-emerald-400" />
+    <path d="M12 2v20M3 7l18 10M3 17L21 7" stroke="#064e3b" strokeWidth="0.5" opacity="0.5" />
+  </svg>
+);
+
 export const GooglePayButton: React.FC<{ onPaymentSuccess: (paymentData: any) => void, amount: number }> = ({ onPaymentSuccess, amount }) => {
   const { settings } = useStore();
-  const [isGPayReady, setIsGPayReady] = useState(false);
+  const [isGPayReady, setIsGReady] = useState(false);
   const paymentsClient = useRef<any>(null);
 
   useEffect(() => {
@@ -49,7 +66,7 @@ export const GooglePayButton: React.FC<{ onPaymentSuccess: (paymentData: any) =>
       paymentsClient.current.isReadyToPay(isReadyToPayRequest)
         .then((response: any) => {
           if (response.result) {
-            setIsGPayReady(true);
+            setIsGReady(true);
           }
         })
         .catch((err: any) => {
@@ -126,7 +143,7 @@ export const GooglePayButton: React.FC<{ onPaymentSuccess: (paymentData: any) =>
 
 export const TransactionAuditor: React.FC<{ transactions: Transaction[] }> = ({ transactions }) => (
   <div className="overflow-x-auto">
-    <table className="w-full text-left border-collapse">
+    <table className="w-full text-left border-collapse min-w-[600px]">
       <thead>
         <tr className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em] border-b border-zinc-900">
           <th className="px-6 py-5">Event ID</th>
@@ -280,14 +297,14 @@ export const GameCard: React.FC<{ game: any; onClick: () => void; useSweepCoins:
     
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
-    const rotY = (x - centerX) / 12;
-    const rotX = (centerY - y) / 12;
+    const rotY = (x - centerX) / 8; 
+    const rotX = (centerY - y) / 8; 
     
     const glareX = (x / rect.width) * 100;
     const glareY = (y / rect.height) * 100;
     
     setRotation({ x: rotX, y: rotY });
-    setGlare({ x: glareX, y: glareY, opacity: 0.4 });
+    setGlare({ x: glareX, y: glareY, opacity: 0.6 });
   };
 
   const handleMouseLeave = () => {
@@ -301,59 +318,70 @@ export const GameCard: React.FC<{ game: any; onClick: () => void; useSweepCoins:
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       onClick={onClick}
-      className="group relative aspect-[3/4.2] rounded-[24px] sm:rounded-[40px] overflow-hidden border-2 border-zinc-800 hover:border-amber-500 transition-all bg-zinc-900 shadow-2xl cursor-pointer perspective-1000"
+      className="group relative aspect-[3/4.2] rounded-[24px] sm:rounded-[40px] overflow-hidden border-2 border-zinc-800 hover:border-amber-500 transition-all bg-zinc-900 shadow-2xl cursor-pointer perspective-1000 transform-gpu"
       style={{
         transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`,
-        transition: 'transform 0.1s ease-out, border-color 0.4s ease, box-shadow 0.4s ease',
-        boxShadow: glare.opacity > 0 ? `0 20px 40px rgba(0,0,0,0.4), 0 0 20px ${game.themeColor || '#f59e0b'}33` : '0 10px 20px rgba(0,0,0,0.3)'
+        transition: rotation.x === 0 ? 'transform 0.5s ease-out, border-color 0.4s ease, box-shadow 0.4s ease' : 'none',
+        boxShadow: glare.opacity > 0 ? `0 30px 60px rgba(0,0,0,0.6), 0 0 40px ${game.themeColor || '#f59e0b'}44` : '0 10px 20px rgba(0,0,0,0.3)'
       }}
     >
       <div 
-        className="absolute inset-0 w-full h-full scale-110 transition-transform duration-700 ease-out"
+        className="absolute inset-0 w-full h-full scale-[1.15] transform-gpu"
         style={{
-          transform: `translate(${rotation.y * 0.8}px, ${-rotation.x * 0.8}px) scale(1.1)`,
+          transform: `translate(${rotation.y * -1.2}px, ${rotation.x * 1.2}px)`,
+          transition: rotation.x === 0 ? 'transform 0.5s ease-out' : 'none',
         }}
       >
         <img 
           src={game.image} 
-          className="w-full h-full object-cover group-hover:brightness-[0.3] transition-all duration-700" 
+          className="w-full h-full object-cover group-hover:brightness-[0.4] transition-all duration-700" 
           alt={game.name} 
         />
       </div>
 
       <div 
-        className="absolute inset-0 pointer-events-none transition-opacity duration-500 overflow-hidden"
+        className="absolute inset-0 pointer-events-none transition-opacity duration-500 overflow-hidden transform-gpu"
         style={{
           opacity: glare.opacity,
-          background: `radial-gradient(circle at ${glare.x}% ${glare.y}%, rgba(255,255,255,0.15) 0%, transparent 60%)`,
+          background: `radial-gradient(circle at ${glare.x}% ${glare.y}%, rgba(255,255,255,0.2) 0%, transparent 40%),
+                       radial-gradient(circle at ${100 - glare.x}% ${100 - glare.y}%, ${game.themeColor || '#f59e0b'}33 0%, transparent 60%)`,
         }}
       />
 
       {game.isStudioOriginal && (
-        <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20">
-           <div className="bg-amber-500 text-zinc-950 text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full uppercase tracking-widest shadow-lg animate-pulse">
-             Studio Original
+        <div className="absolute top-4 left-4 z-20">
+           <div className="relative bg-gradient-to-br from-amber-200 via-amber-500 to-amber-700 text-zinc-950 text-[7px] sm:text-[9px] font-black px-3 py-1.5 rounded-lg uppercase tracking-[0.2em] shadow-2xl overflow-hidden group/badge">
+             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent skew-x-[-25deg] animate-glint" />
+             <span className="relative z-10 italic">Studio Original</span>
            </div>
         </div>
       )}
 
-      <div className="absolute inset-x-0 bottom-0 p-4 sm:p-6 bg-gradient-to-t from-zinc-950 via-zinc-950/80 to-transparent z-10">
-        <p className="text-[8px] sm:text-[10px] font-bold text-amber-500 mb-1 uppercase tracking-widest">{game.provider}</p>
-        <h3 className="text-xl sm:text-2xl font-black text-white italic tracking-tighter mb-2 group-hover:translate-x-1 transition-transform">{game.name}</h3>
-        <div className="flex items-center gap-2">
-           <div className={`w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full ${useSweepCoins ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-amber-500 shadow-[0_0_8px_#f59e0b]'}`} />
-           <span className="text-[8px] sm:text-[10px] font-black text-zinc-500 uppercase tracking-widest">{useSweepCoins ? 'SC MODE' : 'GC MODE'}</span>
+      <div className="absolute inset-x-0 bottom-0 p-5 sm:p-8 bg-gradient-to-t from-zinc-950 via-zinc-950/90 to-transparent z-10">
+        <div className="flex items-center justify-between mb-2">
+           <p className="text-[8px] sm:text-[11px] font-black text-amber-500 uppercase tracking-[0.3em]">{game.provider}</p>
+           <div className="flex gap-1">
+              {[...Array(3)].map((_, i) => <div key={i} className={`w-1 h-1 rounded-full ${i === 0 ? 'bg-amber-500' : 'bg-zinc-800'}`} />)}
+           </div>
+        </div>
+        <h3 className="text-xl sm:text-3xl font-black text-white italic tracking-tighter mb-3 group-hover:translate-x-2 transition-transform duration-500">{game.name}</h3>
+        <div className="flex items-center gap-3">
+           <div className={`w-2.5 h-2.5 rounded-full ${useSweepCoins ? 'bg-emerald-500 shadow-[0_0_12px_#10b981]' : 'bg-amber-500 shadow-[0_0_12px_#f59e0b]'}`} />
+           <span className="text-[9px] sm:text-[11px] font-black text-zinc-500 uppercase tracking-widest leading-none">{useSweepCoins ? 'SC ELIGIBLE' : 'PLAY FOR GC'}</span>
         </div>
       </div>
 
-      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all pointer-events-none translate-y-6 group-hover:translate-y-0 z-20 scale-90 group-hover:scale-100 duration-500">
-        <Button variant="primary" className="pointer-events-auto px-6 sm:px-10 py-3 sm:py-4 shadow-[0_20px_50px_rgba(0,0,0,0.6)]">
-           LAUNCH
-        </Button>
+      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all pointer-events-none translate-y-10 group-hover:translate-y-0 z-20 scale-90 group-hover:scale-100 duration-500 ease-out">
+        <div className="flex flex-col items-center gap-4">
+           <Button variant="primary" className="pointer-events-auto px-10 py-5 shadow-[0_30px_60px_rgba(0,0,0,0.8)] border-2 border-white/10 text-lg">
+             PLAY NOW
+           </Button>
+           <span className="text-[10px] text-white/50 font-black uppercase tracking-[0.5em] italic">Instant Load</span>
+        </div>
       </div>
 
       <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-1000">
-        <div className="absolute top-0 -left-full w-full h-full bg-gradient-to-r from-transparent via-white/5 to-transparent skew-x-[-25deg] animate-shine" />
+        <div className="absolute top-0 -left-full w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-[-25deg] animate-shine" />
       </div>
 
       <style>{`
@@ -361,8 +389,20 @@ export const GameCard: React.FC<{ game: any; onClick: () => void; useSweepCoins:
           0% { left: -100%; }
           100% { left: 200%; }
         }
+        @keyframes glint {
+          0% { transform: translateX(-150%) skewX(-25deg); }
+          50% { transform: translateX(150%) skewX(-25deg); }
+          100% { transform: translateX(150%) skewX(-25deg); }
+        }
         .animate-shine {
-          animation: shine 1.5s infinite;
+          animation: shine 2s infinite;
+        }
+        .animate-glint {
+          animation: glint 3s infinite ease-in-out;
+        }
+        .transform-gpu {
+          transform-style: preserve-3d;
+          backface-visibility: hidden;
         }
       `}</style>
     </div>
@@ -389,24 +429,39 @@ export const CurrencyBadge: React.FC<{ type: CurrencyType; amount: number; hideL
   const isGC = type === CurrencyType.GC;
   return (
     <div className={`
-      relative flex items-center gap-2 sm:gap-4 px-3 sm:px-8 py-2 sm:py-5 rounded-[20px] sm:rounded-[32px] font-black text-[10px] sm:text-sm border-2 transition-all hover:scale-105 cursor-default group overflow-hidden
+      relative flex items-center gap-1 sm:gap-3 px-1.5 sm:px-6 py-1 sm:py-3.5 rounded-[12px] sm:rounded-[24px] font-black border-2 transition-all hover:scale-[1.02] cursor-default group overflow-hidden backdrop-blur-md
       ${isGC 
-        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-[inset_0_0_15px_rgba(245,158,11,0.05)]' 
-        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[inset_0_0_15px_rgba(16,185,129,0.05)]'
+        ? 'bg-amber-500/5 text-amber-400 border-amber-500/20 hover:border-amber-400/40 hover:bg-amber-500/10' 
+        : 'bg-emerald-500/5 text-emerald-400 border-emerald-500/20 hover:border-emerald-400/40 hover:bg-emerald-500/10'
       }
     `}>
       <div className={`
-        flex items-center justify-center w-6 h-6 sm:w-10 sm:h-10 rounded-[10px] sm:rounded-[14px] shrink-0
-        ${isGC ? 'bg-amber-500 shadow-lg' : 'bg-emerald-500 shadow-lg'}
+        flex items-center justify-center w-5 h-5 sm:w-9 sm:h-9 shrink-0 transition-transform group-hover:scale-110
+        ${isGC ? '' : 'animate-pulse-subtle'}
       `}>
-        <span className="text-[10px] sm:text-lg text-zinc-950 font-black">{isGC ? 'G' : 'S'}</span>
+        {isGC ? <GoldCoinIcon /> : <SweepGemIcon />}
       </div>
-      <div className="flex flex-col">
-        <span className="leading-none tracking-tight text-white text-base sm:text-3xl font-black italic">{amount.toLocaleString()}</span>
-        <span className={`${hideLabelOnMobile ? 'hidden sm:inline' : 'inline'} opacity-50 text-[8px] sm:text-[10px] font-black uppercase tracking-widest mt-0.5 sm:mt-1`}>
-          {isGC ? 'Gold Coins' : 'Sweep Coins'}
+      <div className="flex flex-col min-w-0">
+        <span className="leading-tight tracking-tighter text-white text-[10px] sm:text-2xl font-black italic truncate">
+          {amount.toLocaleString()}
+        </span>
+        <span className={`${hideLabelOnMobile ? 'hidden sm:inline' : 'inline'} opacity-40 text-[7px] sm:text-[9px] font-black uppercase tracking-[0.2em] leading-none mt-0.5`}>
+          {isGC ? 'Gold Credits' : 'Sweepstakes'}
         </span>
       </div>
+      
+      {/* Visual Indicator Glow */}
+      <div className={`absolute -bottom-2 -right-2 w-8 h-8 blur-xl opacity-20 ${isGC ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+      
+      <style>{`
+        @keyframes pulse-subtle {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.05); opacity: 0.8; }
+        }
+        .animate-pulse-subtle {
+          animation: pulse-subtle 3s infinite ease-in-out;
+        }
+      `}</style>
     </div>
   );
 };
@@ -444,34 +499,70 @@ export const Layout: React.FC<{ children: React.ReactNode; hideSidebar?: boolean
   const { currentUser, logout, settings } = useStore();
   const navigate = useNavigate();
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  const isMaintenanceMode = settings.maintenanceMode && currentUser?.role !== UserRole.ADMIN;
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleMenuClick = (path: string) => {
+    setIsProfileOpen(false);
+    navigate(path);
+  };
+
+  if (isMaintenanceMode && window.location.hash !== '#/auth') {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6 text-center">
+        <div className="max-w-md space-y-8 animate-in zoom-in-95 duration-700">
+           <div className="w-24 h-24 bg-amber-500/10 text-amber-500 rounded-[32px] flex items-center justify-center text-5xl mx-auto shadow-2xl border border-amber-500/20">⚙️</div>
+           <h1 className="text-5xl font-black italic uppercase tracking-tighter">Sovereign Refinement</h1>
+           <p className="text-zinc-500 font-bold uppercase tracking-[0.3em] text-[10px] leading-relaxed">
+             The Crown is currently undergoing administrative updates. <br />Please return at a later hour.
+           </p>
+           {currentUser?.role === UserRole.ADMIN && <Button onClick={() => navigate('/admin')}>Enter Console</Button>}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-950 text-zinc-100 selection:bg-amber-500/30 relative overflow-x-hidden">
       <SecuritySentinel />
       <SocialTicker />
-      <header className="sticky top-0 z-[100] h-20 sm:h-32 bg-zinc-900/90 backdrop-blur-3xl border-b border-zinc-800/50 px-4 sm:px-14 flex items-center justify-between gap-2 sm:gap-6 shadow-2xl">
-        <NavLink to="/" className="flex items-center gap-2 sm:gap-4 group active:scale-95 transition-all">
+      <header className="sticky top-0 z-[100] h-20 sm:h-32 bg-zinc-900/90 backdrop-blur-3xl border-b border-zinc-800/50 px-3 sm:px-14 flex items-center justify-between gap-2 sm:gap-6 shadow-2xl">
+        <NavLink to="/" className="flex items-center gap-2 sm:gap-4 group active:scale-95 transition-all shrink-0">
            <div className="relative">
              <CrownLogo />
              <div className="absolute -inset-4 bg-amber-500/20 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
            </div>
            <div className="flex flex-col -gap-1 sm:-gap-2">
-             <span className="text-lg sm:text-5xl font-black tracking-tighter text-white leading-none italic uppercase drop-shadow-xl">CROWNPLAY</span>
-             <span className="text-[7px] sm:text-[14px] text-amber-500 font-black tracking-[0.4em] sm:tracking-[0.6em] uppercase opacity-70 italic">Monarch Gaming</span>
+             <span className="text-sm sm:text-5xl font-black tracking-tighter text-white leading-none italic uppercase drop-shadow-xl">CROWNPLAY</span>
+             <span className="text-[6px] sm:text-[14px] text-amber-500 font-black tracking-[0.4em] sm:tracking-[0.6em] uppercase opacity-70 italic">Monarch Gaming</span>
            </div>
         </NavLink>
 
-        <div className="flex items-center gap-2 sm:gap-10">
+        <div className="flex items-center gap-1 sm:gap-6 lg:gap-10">
           {currentUser ? (
             <>
               <div className="hidden lg:flex flex-col items-end px-6 py-2 border-r-2 border-zinc-800/50">
                  <span className="text-[10px] font-black text-amber-500 italic uppercase tracking-widest mb-1">ROYAL JACKPOT:</span>
                  <span className="text-2xl font-black text-white italic tracking-tighter animate-pulse">{settings.jackpotSC.toLocaleString()} SC</span>
               </div>
-              <div className="flex items-center gap-2 sm:gap-6 bg-black/40 p-1 sm:p-2.5 rounded-[20px] sm:rounded-[40px] border border-zinc-800 shadow-2xl scale-90 sm:scale-100 origin-right">
+              
+              <div className="flex items-center gap-1 sm:gap-4 bg-black/40 p-1 sm:p-2 rounded-[14px] sm:rounded-[28px] border border-zinc-800/50 shadow-inner">
                 <CurrencyBadge type={CurrencyType.GC} amount={currentUser.goldCoins} />
                 <CurrencyBadge type={CurrencyType.SC} amount={currentUser.sweepCoins} />
               </div>
+
               <div className="hidden md:flex flex-col items-end px-4">
                  <span className="text-[12px] font-black text-amber-500 uppercase tracking-widest italic">LVL {currentUser.level}</span>
                  <div className="w-24 sm:w-36 h-2.5 bg-zinc-800 rounded-full mt-2 overflow-hidden border border-zinc-950 shadow-inner">
@@ -479,32 +570,46 @@ export const Layout: React.FC<{ children: React.ReactNode; hideSidebar?: boolean
                  </div>
               </div>
               <Button variant="primary" className="hidden lg:block px-12 py-5 text-sm font-black" onClick={() => navigate('/shop')}>GET COINS</Button>
-              <div className="relative group">
-                <button className="w-10 h-10 sm:w-20 sm:h-20 rounded-[12px] sm:rounded-[28px] bg-zinc-800 border-2 sm:border-4 border-zinc-700/50 flex items-center justify-center font-black text-amber-500 hover:border-amber-500 shadow-2xl transition-all uppercase text-xl sm:text-3xl italic group-hover:rotate-6">
+              <div className="relative shrink-0" ref={profileMenuRef}>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsProfileOpen(!isProfileOpen);
+                  }}
+                  className={`w-10 h-10 sm:w-20 sm:h-20 rounded-[10px] sm:rounded-[28px] bg-zinc-800 border-2 sm:border-4 flex items-center justify-center font-black transition-all uppercase text-base sm:text-3xl italic shadow-2xl ${isProfileOpen ? 'border-amber-500 text-white bg-zinc-700' : 'border-zinc-700/50 text-amber-500'}`}
+                >
                   {currentUser.name[0]}
                 </button>
-                <div className="absolute right-0 mt-4 sm:mt-6 w-64 sm:w-80 bg-zinc-900/98 backdrop-blur-3xl border-2 border-zinc-800 rounded-[32px] sm:rounded-[56px] shadow-[0_50px_150px_rgba(0,0,0,1)] p-4 sm:p-6 invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all transform origin-top-right scale-95 group-hover:scale-100 z-[200]">
-                  <div className="px-4 py-4 sm:px-8 sm:py-8 border-b-2 border-zinc-800 mb-4 text-center">
-                    <p className="text-[9px] sm:text-[11px] font-black text-zinc-500 uppercase tracking-[0.4em] mb-2 sm:mb-3 italic">Verified Citizen</p>
-                    <p className="text-lg sm:text-2xl font-black text-white truncate italic uppercase tracking-tighter">{currentUser.name}</p>
-                    <div className="flex justify-center gap-2 mt-4 sm:mt-6 flex-wrap">{currentUser.badges.map(b => <BadgeIcon key={b} type={b} />)}</div>
+                
+                {isProfileOpen && (
+                  <div className="absolute right-0 mt-4 sm:mt-6 w-64 sm:w-80 bg-zinc-900/98 backdrop-blur-3xl border-2 border-zinc-800 rounded-[32px] sm:rounded-[48px] shadow-[0_50px_150px_rgba(0,0,0,1)] p-4 sm:p-6 animate-in zoom-in-95 duration-200 origin-top-right z-[500]">
+                    <div className="px-4 py-4 sm:px-6 sm:py-6 border-b-2 border-zinc-800 mb-4 text-center">
+                      <p className="text-[9px] sm:text-[11px] font-black text-zinc-500 uppercase tracking-[0.4em] mb-2 sm:mb-3 italic">Verified Citizen</p>
+                      <p className="text-lg sm:text-2xl font-black text-white truncate italic uppercase tracking-tighter">{currentUser.name}</p>
+                      <div className="flex justify-center gap-2 mt-4 sm:mt-6 flex-wrap">{currentUser.badges.map(b => <BadgeIcon key={b} type={b} />)}</div>
+                    </div>
+                    <div className="space-y-1 sm:space-y-1.5">
+                      <MenuButton onClick={() => handleMenuClick('/lobby')} icon="🎰" label="Reel Treasury" />
+                      <MenuButton onClick={() => handleMenuClick('/leaderboard')} icon="🏆" label="Elite Hierarchy" />
+                      <MenuButton onClick={() => handleMenuClick('/bonuses')} icon="💎" label="Bounty Charter" />
+                      <MenuButton onClick={() => handleMenuClick('/profile')} icon="🛡️" label="Identity Vault" />
+                      {currentUser.role === UserRole.ADMIN && <MenuButton onClick={() => handleMenuClick('/admin')} icon="👑" label="Monarch Console" highlight />}
+                      <div className="h-0.5 bg-zinc-800/50 my-3 sm:my-4 mx-4 sm:mx-6" />
+                      <button 
+                        onClick={() => { setIsProfileOpen(false); logout(); }} 
+                        className="w-full flex items-center gap-4 sm:gap-5 px-4 sm:px-6 py-3 sm:py-4 hover:bg-red-500/10 text-red-500 rounded-[24px] sm:rounded-[32px] text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all active:scale-95 text-left"
+                      >
+                        🚪 ABANDON THRONE
+                      </button>
+                    </div>
                   </div>
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <MenuButton onClick={() => navigate('/lobby')} icon="🎰" label="Reel Treasury" />
-                    <MenuButton onClick={() => navigate('/leaderboard')} icon="🏆" label="Elite Hierarchy" />
-                    <MenuButton onClick={() => navigate('/bonuses')} icon="💎" label="Bounty Charter" />
-                    <MenuButton onClick={() => navigate('/profile')} icon="🛡️" label="Identity Vault" />
-                    {currentUser.role === UserRole.ADMIN && <MenuButton onClick={() => navigate('/admin')} icon="👑" label="Monarch Console" highlight />}
-                    <div className="h-0.5 bg-zinc-800/50 my-3 sm:my-4 mx-4 sm:mx-6" />
-                    <button onClick={logout} className="w-full flex items-center gap-4 sm:gap-5 px-4 sm:px-6 py-3 sm:py-4 hover:bg-red-500/10 text-red-500 rounded-[24px] sm:rounded-[32px] text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all active:scale-95 text-left">🚪 ABANDON THRONE</button>
-                  </div>
-                </div>
+                )}
               </div>
             </>
           ) : (
             <div className="flex items-center gap-2 sm:gap-6">
-              <Button variant="ghost" onClick={() => navigate('/auth')} className="text-[10px] sm:text-sm font-black">ENTER</Button>
-              <Button variant="primary" onClick={() => navigate('/auth')} className="px-6 sm:px-14 py-3 sm:py-5 text-[10px] sm:text-sm font-black italic">JOIN KINGDOM</Button>
+              <Button variant="ghost" onClick={() => navigate('/auth')} className="text-[10px] sm:text-sm font-black px-2 sm:px-6">ENTER</Button>
+              <Button variant="primary" onClick={() => navigate('/auth')} className="px-3 sm:px-14 py-2 sm:py-5 text-[10px] sm:text-sm font-black italic">JOIN</Button>
             </div>
           )}
         </div>
@@ -526,7 +631,7 @@ export const Layout: React.FC<{ children: React.ReactNode; hideSidebar?: boolean
             </div>
           </aside>
         )}
-        <main className="flex-1 overflow-x-hidden p-4 sm:p-8 md:p-16">{children}</main>
+        <main className="flex-1 p-4 sm:p-8 md:p-16">{children}</main>
       </div>
       <RoyalConcierge isOpen={isChatOpen} setIsOpen={setIsChatOpen} />
     </div>
@@ -557,12 +662,14 @@ const RoyalConcierge: React.FC<{ isOpen: boolean, setIsOpen: (v: boolean) => voi
     { role: 'ai', text: "Your Majesty, I am at your service. How may I assist your gameplay today?" }
   ]);
   const [input, setInput] = useState('');
+  
   const handleSend = async () => {
     if (!input.trim()) return;
     const txt = input; setInput(''); setMessages(p => [...p, { role: 'user', text: txt }]);
     const res = await generateGeminiResponse(txt);
     setMessages(p => [...p, { role: 'ai', text: res }]);
   };
+
   return (
     <div className="fixed bottom-4 right-4 sm:bottom-12 sm:right-12 z-[200] flex flex-col items-end">
       {isOpen && (

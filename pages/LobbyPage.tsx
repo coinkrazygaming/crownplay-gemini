@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout, Button, Card, GameCard } from '../components';
+import { Layout, Button, Card, GameCard, CrownLogo } from '../components';
 import { useStore } from '../store';
 import { getAIGameRecommendation } from '../aiService';
 import { TransactionType } from '../types';
@@ -13,13 +13,28 @@ const LobbyPage: React.FC = () => {
   const [aiPick, setAiPick] = useState<{ name: string, reason: string } | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [useSweepCoins, setUseSweepCoins] = useState(false);
+  const [showDailyModal, setShowDailyModal] = useState(false);
+  const [dailyRewardResult, setDailyRewardResult] = useState<{ gc: number, sc: number, streak: number } | null>(null);
 
   const filteredGames = games.filter(g => g.categoryId === activeCategoryId);
 
+  useEffect(() => {
+    if (currentUser) {
+      const now = new Date();
+      const lastClaim = currentUser.lastDailyClaim ? new Date(currentUser.lastDailyClaim) : null;
+      if (!lastClaim || (now.getTime() - lastClaim.getTime()) >= 86400000) {
+        setShowDailyModal(true);
+      }
+    }
+  }, [currentUser]);
+
   const handleClaimDaily = () => {
-    const err = claimDailyReward();
-    if (err) alert(err);
-    else alert("The Royal Bounty has been added to your vault!");
+    const result = claimDailyReward();
+    if (result.error) {
+      alert(result.error);
+    } else {
+      setDailyRewardResult({ gc: result.gc, sc: result.sc, streak: result.streak });
+    }
   };
 
   const handleAiPick = async () => {
@@ -32,6 +47,58 @@ const LobbyPage: React.FC = () => {
   return (
     <Layout>
       <div className="space-y-12">
+        {/* Daily Reward Modal */}
+        {showDailyModal && (
+          <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-zinc-950/90 backdrop-blur-2xl animate-in fade-in duration-500">
+             <Card className="w-full max-w-lg p-10 border-amber-500/40 relative shadow-[0_50px_150px_rgba(0,0,0,1)] text-center overflow-hidden">
+                {!dailyRewardResult ? (
+                  <>
+                    <div className="flex justify-center mb-8">
+                       <div className="w-24 h-24 bg-amber-500 rounded-[32px] flex items-center justify-center text-5xl shadow-2xl animate-bounce">🎁</div>
+                    </div>
+                    <h2 className="text-4xl font-black uppercase italic tracking-tighter text-white mb-2">Royal Attendance</h2>
+                    <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px] mb-8">Your presence is valued, Monarch. Claim your tribute.</p>
+                    
+                    <div className="grid grid-cols-7 gap-1.5 mb-10">
+                       {[1, 2, 3, 4, 5, 6, 7].map(day => {
+                         const isToday = (currentUser?.loginStreak || 0) + 1 === day;
+                         const isPast = (currentUser?.loginStreak || 0) >= day;
+                         return (
+                           <div key={day} className={`flex flex-col items-center gap-2 p-2 rounded-xl border ${isToday ? 'bg-amber-500 border-amber-400' : isPast ? 'bg-zinc-800 border-zinc-700 opacity-50' : 'bg-zinc-900 border-zinc-800'}`}>
+                              <span className={`text-[8px] font-black uppercase ${isToday ? 'text-zinc-950' : 'text-zinc-500'}`}>Day {day}</span>
+                              <span className="text-sm">{day === 7 ? '👑' : '💎'}</span>
+                           </div>
+                         );
+                       })}
+                    </div>
+
+                    <Button variant="primary" className="w-full py-5 text-xl font-black italic shadow-amber-500/20 shadow-2xl" onClick={handleClaimDaily}>
+                      CLAIM ROYAL BOUNTY
+                    </Button>
+                    <button onClick={() => setShowDailyModal(false)} className="mt-6 text-[10px] font-black text-zinc-600 uppercase tracking-widest hover:text-white transition-colors">MAYBE LATER</button>
+                  </>
+                ) : (
+                  <div className="animate-in zoom-in-95 duration-700">
+                    <div className="flex justify-center mb-8">
+                       <div className="w-32 h-32 bg-emerald-500 rounded-full flex items-center justify-center text-6xl shadow-[0_0_80px_rgba(16,185,129,0.4)]">✨</div>
+                    </div>
+                    <h2 className="text-5xl font-black uppercase italic tracking-tighter text-white mb-6">Tribute Accepted!</h2>
+                    <div className="space-y-4 mb-10">
+                       <div className="p-6 bg-zinc-950 rounded-[32px] border border-zinc-800 shadow-inner">
+                          <div className="text-4xl font-black text-amber-500 italic mb-1">+{dailyRewardResult.gc.toLocaleString()} GC</div>
+                          <div className="text-2xl font-black text-emerald-400 italic">+{dailyRewardResult.sc} SC</div>
+                       </div>
+                       <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest italic">Current Streak: {dailyRewardResult.streak} Days</p>
+                    </div>
+                    <Button variant="primary" className="w-full py-6 text-xl font-black" onClick={() => setShowDailyModal(false)}>
+                      CONTINUE TO KINGDOM
+                    </Button>
+                  </div>
+                )}
+             </Card>
+          </div>
+        )}
+
         {/* Banner */}
         <div className="h-64 sm:h-[500px] rounded-[48px] overflow-hidden relative group border-2 border-zinc-900">
           <img src="https://images.unsplash.com/photo-1596838132731-dd36a1f3ec72?auto=format&fit=crop&q=80&w=1200" className="w-full h-full object-cover brightness-[0.2]" alt="Lobby Banner" />
@@ -51,7 +118,7 @@ const LobbyPage: React.FC = () => {
                  {isAiLoading ? 'CONSULTING ORACLE...' : "AI PERSONA PICK ✨"}
                </Button>
                {currentUser && (
-                 <Button variant="secondary" className="py-4 px-8" onClick={handleClaimDaily}>CLAIM DAILY BOUNTY</Button>
+                 <Button variant="secondary" className="py-4 px-8" onClick={() => setShowDailyModal(true)}>VIEW DAILY BOUNTY</Button>
                )}
              </div>
           </div>
@@ -110,15 +177,20 @@ const LobbyPage: React.FC = () => {
           ))}
         </div>
 
-        {/* Game Grid */}
+        {/* Game Grid with Staggered Entry */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8">
-           {filteredGames.map((game) => (
-              <GameCard 
+           {filteredGames.map((game, idx) => (
+              <div 
                 key={game.id} 
-                game={game} 
-                useSweepCoins={useSweepCoins} 
-                onClick={() => navigate(`/game/${game.id}${useSweepCoins ? '?mode=sc' : ''}`)} 
-              />
+                className="animate-in fade-in slide-in-from-bottom-8 duration-700 fill-mode-both"
+                style={{ animationDelay: `${idx * 50}ms` }}
+              >
+                <GameCard 
+                  game={game} 
+                  useSweepCoins={useSweepCoins} 
+                  onClick={() => navigate(`/game/${game.id}${useSweepCoins ? '?mode=sc' : ''}`)} 
+                />
+              </div>
            ))}
         </div>
       </div>
